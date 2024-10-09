@@ -8,6 +8,7 @@ adventskalender/.pnp
 
 # testing
 adventskalender/coverage
+adventskalender/backend/helper.js
 
 # production
 adventskalender/build
