@@ -1,17 +1,12 @@
-// src/components/AdventCalendar.js
 import React, { useState, useEffect } from 'react';
 import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
 
 const AdventCalendar = () => {
-  // State to manage the doors that have been opened
   const [openDoors, setOpenDoors] = useState({});
-  // State to manage the data for each calendar door
   const [calendarData, setCalendarData] = useState({});
-  // State to manage the currently selected door content for popup
   const [selectedContent, setSelectedContent] = useState(null);
 
-  // Fetch calendar data on component mount
   useEffect(() => {
     fetchCalendarData();
   }, []);
@@ -30,39 +25,34 @@ const AdventCalendar = () => {
   };
 
   const handleDoorOpen = (day) => {
-    // Mark the door as opened
     setOpenDoors(prev => ({ ...prev, [day]: true }));
-    // Set the selected content for the popup
     setSelectedContent({ day, ...calendarData[day] });
   };
 
   const handleClosePopup = () => {
-    // Close the popup by clearing the selected content
     setSelectedContent(null);
   };
 
-  // Create an array representing the 24 doors of the advent calendar
-  const doorLayout = Array.from({ length: 24 }, (_, index) => ({ day: index + 1, size: 'large' }));
+  const doorLayout = Array.from({ length: 24 }, (_, index) => ({ day: index + 1 }));
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-300 flex flex-col justify-center items-center p-4 sm:p-8">
-      <h1 className="text-3xl sm:text-5xl font-extrabold text-center mb-6 sm:mb-10 text-gray-800 drop-shadow-lg">Adventskalender</h1>
-      <div className="w-full max-w-4xl sm:max-w-6xl p-4 sm:p-6">
-        {/* Render a grid of calendar doors */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 grid-rows-12 sm:grid-rows-6 gap-2 sm:gap-4">
-          {doorLayout.map(({ day, size }) => (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col justify-center items-center p-4 sm:p-8">
+      <h1 className="text-4xl sm:text-6xl font-bold text-center mb-8 sm:mb-12 text-gray-800 tracking-tight">
+        Adventskalender
+      </h1>
+      <div className="w-full max-w-5xl sm:max-w-7xl p-6 sm:p-8 bg-white bg-opacity-70 backdrop-filter backdrop-blur-sm rounded-2xl shadow-md">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+          {doorLayout.map(({ day }) => (
             <CalendarDoor
               key={day}
               day={day}
               isOpen={openDoors[day]}
               onOpen={handleDoorOpen}
-              size={size}
               contentPreview={calendarData[day]}
             />
           ))}
         </div>
       </div>
-      {/* Render the content popup if a door has been opened */}
       <ContentPopup
         isOpen={!!selectedContent}
         onClose={handleClosePopup}
