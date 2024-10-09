@@ -7,11 +7,11 @@ const Dialog = ({ isOpen, onClose, children }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-6" 
+      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 sm:p-6" 
       onClick={onClose} // Close dialog when clicking outside the content area
     >
       <div 
-        className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-10 relative"
+        className="bg-white rounded-2xl max-w-full sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-10 relative"
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the content area
       >
         {/* Close button for the dialog */}
