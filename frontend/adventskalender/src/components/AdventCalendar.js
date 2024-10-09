@@ -35,9 +35,9 @@ const AdventCalendar = () => {
   const doorLayout = Array.from({ length: 24 }, (_, index) => ({ day: index + 1, size: 'large' }));
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-red-100 to-green-100 flex flex-col justify-center items-center p-4">
-      <h1 className="text-4xl font-bold text-center mb-6 text-green-800">Adventskalender</h1>
-      <div className="w-full max-w-7xl p-4">
+    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-300 flex flex-col justify-center items-center p-8">
+      <h1 className="text-5xl font-extrabold text-center mb-10 text-gray-800 drop-shadow-lg">Adventskalender</h1>
+      <div className="w-full max-w-6xl p-6">
         <div className="grid grid-cols-6 grid-rows-4 gap-4">
           {doorLayout.map(({ day, size }) => (
             <CalendarDoor
