@@ -1,0 +1,24 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+frontend/adventskalender/node_modules
+backend/node_modules
+adventskalender/.pnp
+.pnp.js
+
+# testing
+adventskalender/coverage
+
+# production
+adventskalender/build
+
+# misc
+adventskalender/.DS_Store
+adventskalender/.env.local
+adventskalender/.env.development.local
+adventskalender/.env.test.local
+adventskalender/.env.production.local
+
+adventskalender/npm-debug.log*
+adventskalender/yarn-debug.log*
+adventskalender/yarn-error.log*
