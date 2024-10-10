@@ -1,4 +1,4 @@
-const startDay = new Date();// new Date("2024-12-01") //Abändern zu 1. Dez. in prod
+const startDay = new Date("2024-10-8");// new Date("2024-12-01") //Abändern zu 1. Dez. in prod
 
 Date.prototype.addDays = function(days) {
     var date = new Date(this.valueOf());
