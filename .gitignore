@@ -9,6 +9,8 @@ adventskalender/.pnp
 # testing
 adventskalender/coverage
 
+.DS_Store
+
 # production
 adventskalender/build
 
