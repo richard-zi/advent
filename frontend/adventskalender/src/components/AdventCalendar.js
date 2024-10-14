@@ -3,13 +3,24 @@ import { Settings } from 'lucide-react';
 import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
 import SettingsModal from './SettingsModal';
+import Snowfall from './Snowfall';
 
 const AdventCalendar = () => {
-  const [openDoors, setOpenDoors] = useState({});
+  const [openDoors, setOpenDoors] = useState(() => {
+    const saved = localStorage.getItem('openDoors');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [calendarData, setCalendarData] = useState({});
   const [selectedContent, setSelectedContent] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [snowfall, setSnowfall] = useState(() => {
+    const saved = localStorage.getItem('snowfall');
+    return saved ? JSON.parse(saved) : false;
+  });
   const settingsRef = useRef(null);
 
   // Vorgemischte Reihenfolge der Türchen
@@ -24,12 +35,21 @@ const AdventCalendar = () => {
   }, []);
 
   useEffect(() => {
+    localStorage.setItem('openDoors', JSON.stringify(openDoors));
+  }, [openDoors]);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('snowfall', JSON.stringify(snowfall));
+  }, [snowfall]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -71,11 +91,16 @@ const AdventCalendar = () => {
   };
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
+    setDarkMode(prev => !prev);
+  };
+
+  const toggleSnowfall = () => {
+    setSnowfall(prev => !prev);
   };
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${darkMode ? 'from-gray-800 to-gray-900' : 'from-gray-50 to-gray-100'} flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 relative transition-colors duration-300`}>
+      <Snowfall isActive={snowfall} />
       <div ref={settingsRef} className="absolute top-4 right-4">
         <button
           onClick={toggleSettings}
@@ -87,6 +112,8 @@ const AdventCalendar = () => {
           isOpen={isSettingsOpen}
           darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
+          snowfall={snowfall}
+          toggleSnowfall={toggleSnowfall}
         />
       </div>
       <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 sm:mb-6 ${darkMode ? 'text-gray-100' : 'text-gray-800'} tracking-tight transition-colors duration-300`}>
