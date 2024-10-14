@@ -1,54 +1,25 @@
 import React from 'react';
-import Dialog from './Dialog';
 
-const SettingsModal = ({ isOpen, onClose }) => {
+const SettingsModal = ({ isOpen, darkMode, toggleDarkMode }) => {
+  if (!isOpen) return null;
+
   return (
-    <Dialog isOpen={isOpen} onClose={onClose}>
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-800">Einstellungen</h2>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="background" className="block text-sm font-medium text-gray-700">
-              Hintergrund
-            </label>
-            <select
-              id="background"
-              name="background"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-            >
-              <option>Standard</option>
-              <option>Weihnachtlich</option>
-              <option>Winterlich</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="doorStyle" className="block text-sm font-medium text-gray-700">
-              Türchen-Stil
-            </label>
-            <select
-              id="doorStyle"
-              name="doorStyle"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-            >
-              <option>Klassisch</option>
-              <option>Modern</option>
-              <option>Vintage</option>
-            </select>
-          </div>
-          <div className="flex items-center">
-            <input
-              id="snowfall"
-              name="snowfall"
-              type="checkbox"
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+    <div className={`absolute top-14 right-4 w-48 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none`}>
+      <div className="px-4 py-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Dark Mode</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              className="sr-only peer" 
+              checked={darkMode}
+              onChange={toggleDarkMode}
             />
-            <label htmlFor="snowfall" className="ml-2 block text-sm text-gray-700">
-              Schneefall-Effekt aktivieren
-            </label>
-          </div>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+          </label>
         </div>
       </div>
-    </Dialog>
+    </div>
   );
 };
 
