@@ -1,7 +1,12 @@
-export default function App() {
+import React from 'react';
+import AdventCalendar from './components/AdventCalendar';
+
+function App() {
   return (
-    <h1 className="text-3xl font-bold underline">
-      Hello world!
-    </h1>
-  )
+    <div className="App">
+      <AdventCalendar />
+    </div>
+  );
 }
+
+export default App;
