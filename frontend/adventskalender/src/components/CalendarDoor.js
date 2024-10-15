@@ -15,7 +15,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       .replace(/^\s*\d+\.\s+/gm, '')
       .replace(/\n/g, ' ').trim();
 
-    return plainText.length > 50 ? plainText.substring(0, 47) + '...' : plainText;
+    return plainText.length > 80 ? plainText.substring(0, 77) + '...' : plainText;
   };
 
   const renderMediaIcon = (type) => {
