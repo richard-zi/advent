@@ -67,7 +67,79 @@ const AdventCalendar = () => {
   const fetchCalendarData = async () => {
     // Mock API call to fetch calendar data
     const mockData = {
-      1: { type: 'text', data: "## Das hier ist eine überschrift ### Das hier auch" },
+      1: { type: 'text', data: `# Willkommen zum Adventskalender!
+  
+  ## Markdown-Funktionen
+  
+  ### 1. Textformatierung
+  
+  Dies ist ein **fettgedruckter** Text und dies ist *kursiv*. Du kannst auch ***beides kombinieren***.
+  Das ist ein text
+  ### 2. Listen
+  
+  Ungeordnete Liste:
+  - Erstes Item
+  - Zweites Item
+    - Unterpunkt
+  - Drittes Item
+  
+  Geordnete Liste:
+  1. Erster Punkt
+  2. Zweiter Punkt
+  3. Dritter Punkt
+  
+  ### 3. Links
+  
+  Hier ist ein [Link zur Weihnachtsseite](https://de.wikipedia.org/wiki/Weihnachten).
+  
+  ### 4. Bilder
+  
+  ![Weihnachtsbaum](https://example.com/weihnachtsbaum.jpg)
+  
+  ### 5. Blockzitate
+  
+  > Weihnachten ist die Zeit, in der die Menschen nach Hause kommen.
+  > 
+  > -- Marjorie Holmes
+  
+  ### 6. Code
+  
+  Inline-Code: \`console.log("Frohe Weihnachten!")\`
+  
+  Code-Block:
+  \`\`\`javascript
+  function weihnachtsGruß(name) {
+    return \`Frohe Weihnachten, \${name}!\`;
+  }
+  
+  console.log(weihnachtsGruß("Welt"));
+  \`\`\`
+  
+  ### 7. Horizontale Linie
+  
+  ---
+  
+  ### 8. Tabellen
+  
+  | Datum | Ereignis |
+  |-------|----------|
+  | 24.12 | Heiligabend |
+  | 25.12 | 1. Weihnachtstag |
+  | 26.12 | 2. Weihnachtstag |
+  
+  ### 9. Aufgabenliste
+  
+  - [x] Weihnachtsbaum schmücken
+  - [ ] Geschenke einpacken
+  - [ ] Plätzchen backen
+  
+  ### 10. Fußnoten
+  
+  Hier ist eine Fußnote[^1].
+  
+  [^1]: Dies ist der Fußnotentext.
+  
+  Viel Spaß beim Entdecken des Adventskalenders!` },
       2: { type: 'video', data: "/api/placeholder/400/320", text: "Schöne Weihnachtszeit!" },
       3: { type: 'audio', data: "https://example.com/jingle-bells.mp3", text: "Weihnachtsmusik zum Genießen" },
       4: { type: 'image', data: "https://example.com/image.jpg", text: "Ein schönes Weihnachtsbild" },
