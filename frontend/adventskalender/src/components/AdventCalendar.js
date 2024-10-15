@@ -15,15 +15,15 @@ const AdventCalendar = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
+    return saved !== null ? JSON.parse(saved) : true; // Default to true
   });
   const [snowfall, setSnowfall] = useState(() => {
     const saved = localStorage.getItem('snowfall');
-    return saved ? JSON.parse(saved) : false;
+    return saved !== null ? JSON.parse(saved) : true; // Default to true
   });
   const settingsRef = useRef(null);
 
-  // Vorgemischte Reihenfolge der Türchen
+  // Predefined order of doors
   const doorOrder = [
     7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
     9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
@@ -67,7 +67,7 @@ const AdventCalendar = () => {
   const fetchCalendarData = async () => {
     // Mock API call to fetch calendar data
     const mockData = {
-      1: { type: 'text', data: "Frohe Weihnachten!" },
+      1: { type: 'text', data: "## Das hier ist eine überschrift ### Das hier auch" },
       2: { type: 'video', data: "/api/placeholder/400/320", text: "Schöne Weihnachtszeit!" },
       3: { type: 'audio', data: "https://example.com/jingle-bells.mp3", text: "Weihnachtsmusik zum Genießen" },
       4: { type: 'image', data: "https://example.com/image.jpg", text: "Ein schönes Weihnachtsbild" },
