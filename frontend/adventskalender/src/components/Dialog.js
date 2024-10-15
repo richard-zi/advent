@@ -8,10 +8,10 @@ const Dialog = ({ isOpen, onClose, children, darkMode }) => {
     <div 
       className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 sm:p-6" 
       onClick={onClose}
-      style={{ zIndex: 100 }}  // Höherer z-index
+      style={{ zIndex: 100 }}
     >
       <div 
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl max-w-full sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-10 relative`}
+        className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-2xl max-w-full sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-10 relative`}
         onClick={(e) => e.stopPropagation()}
       >
         <button 

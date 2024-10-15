@@ -2,7 +2,20 @@ import React from 'react';
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
-    return text && text.length > 12 ? text.substring(0, 12) + '...' : text;
+    if (!text) return '';
+    
+    // Entferne Markdown-Formatierungen
+    const plainText = text
+      .replace(/#{1,6}\s?/g, '')         // Entferne Überschriften
+      .replace(/(\*\*|__)(.*?)\1/g, '$2') // Entferne Fettdruck
+      .replace(/(\*|_)(.*?)\1/g, '$2')    // Entferne Kursiv
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Entferne Links, behalte den Text
+      .replace(/`{1,3}[^`\n]+`{1,3}/g, '') // Entferne Code-Blöcke
+      .replace(/^\s*[-+*]\s+/gm, '')     // Entferne Aufzählungszeichen
+      .replace(/^\s*\d+\.\s+/gm, '')     // Entferne nummerierte Listen
+      .replace(/\n/g, ' ').trim();       // Ersetze Zeilenumbrüche durch Leerzeichen und trimme
+
+    return plainText.length > 50 ? plainText.substring(0, 47) + '...' : plainText;
   };
 
   return (
