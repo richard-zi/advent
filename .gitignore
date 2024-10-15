@@ -10,6 +10,8 @@ adventskalender/.pnp
 adventskalender/coverage
 adventskalender/backend/helper.js
 
+.DS_Store
+
 # production
 adventskalender/build
 
