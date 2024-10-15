@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
+import axios from 'axios'; 
 
 const AdventCalendar = () => {
   const [openDoors, setOpenDoors] = useState({});
@@ -13,6 +14,13 @@ const AdventCalendar = () => {
 
   const fetchCalendarData = async () => {
     // Mock API call to fetch calendar data
+    try {
+      const response = await axios.get('http://localhost:5000/api/');  // WIP
+      console.log(response.data); 
+      setCalendarData(response.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    /*
     const mockData = {
       1: { type: 'text', data: "Frohe Weihnachten!" },
       2: { type: 'video', data: "/api/placeholder/400/320", text: "Schöne Weihnachtszeit!" },
@@ -20,11 +28,11 @@ const AdventCalendar = () => {
       4: { type: 'image', data: "https://example.com/image.jpg", text: "Ein schönes Weihnachtsbild" },
       5: { type: 'text', data: "Dies ist ein sehr langer Text, der abgeschnitten werden muss, wenn er zu lang ist, um in das Türchen zu passen." },
       // ... more days
-    };
-    setCalendarData(mockData);
+    */
+      };
   };
-
   const handleDoorOpen = (day) => {
+    console.log(calendarData);
     setOpenDoors(prev => ({ ...prev, [day]: true }));
     setSelectedContent({ day, ...calendarData[day] });
   };
