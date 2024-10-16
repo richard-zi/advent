@@ -11,4 +11,4 @@ Die Daten werden auf zwei Weisen bereitgestellt: Zum einen der Link direkt auf d
     2 : ...
 }  
 
-Beide Calls sind im Backend mit einem Zeit-Checker versehen (implementiert in ``timing.js``), der überprüft, ob das angefragte Medium überhaupt aufgerufen werden kann. Hierzu wird ein Startdatum definiert (1. Dez für prod) und der Index - 1 als Tage addiert als Referenzdatem. Dann wird geprüft, ob der heutige Tag (auf Serverseite definiert) gleich oder nach dem Referenzdatum liegt. Selbstverständlich werden die Daten, die noch nicht verfügbar sind, noch nicht geladen und eine Fehlernachricht wird stattdessen geladen.
+Beide Calls sind im Backend mit einem Zeit-Checker versehen (implementiert in ``timing.js``), der überprüft, ob das angefragte Medium überhaupt aufgerufen werden kann. Hierzu wird ein Startdatum definiert (1. Dez für prod) und der Index - 1 als Tage addiert als Referenzdatem. Dann wird geprüft, ob der heutige Tag (auf Serverseite definiert) gleich oder nach dem Referenzdatum liegt. Selbstverständlich werden die Daten, die noch nicht verfügbar sind, nicht geladen (Stattdessen wird Typ "not available yet" wenn die Daten noch nicht verfügbar sind.)

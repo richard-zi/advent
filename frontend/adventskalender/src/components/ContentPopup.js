@@ -46,8 +46,23 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
     }
   };
 
-  return (
+  return (content.type === "error" ? // TODO: Styling der Fehlermeldung
     <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
+      <div className={`space-y-6 sm:space-y-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h2 className={`text-3xl sm:text-4xl font-bold text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+         Invalide Datenanfrage
+        </h2>
+      </div>
+    </Dialog>
+    : content.type === "not available yet" ? // TODO: Styling der Spickmeldung
+    <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
+      <div className={`space-y-6 sm:space-y-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h2 className={`text-3xl sm:text-4xl font-bold text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+         Kein Spicken!
+        </h2>
+      </div>
+    </Dialog> 
+    : <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
       <div className={`space-y-6 sm:space-y-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
         <h2 className={`text-3xl sm:text-4xl font-bold text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
           Tag {content.day}

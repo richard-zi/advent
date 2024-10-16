@@ -7,6 +7,7 @@ import Snowfall from './Snowfall';
 import axios from 'axios'; 
 
 const AdventCalendar = () => {
+  localStorage.clear() // Für Debuggingzwecke
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
@@ -157,9 +158,16 @@ const AdventCalendar = () => {
       };
   };
   const handleDoorOpen = (day) => {
-    console.log(calendarData);
-    setOpenDoors(prev => ({ ...prev, [day]: true }));
-    setSelectedContent({ day, ...calendarData[day] });
+    if (!calendarData[day]) {
+      setSelectedContent({"type" : "error"});
+
+    } else  {
+      if (calendarData[day].type !== "not available yet") {
+        setOpenDoors(prev => ({ ...prev, [day]: true }));
+      }
+      setSelectedContent({ day, ...calendarData[day] });
+    }
+    
   };
 
   const handleClosePopup = () => {

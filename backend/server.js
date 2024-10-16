@@ -39,8 +39,8 @@ app.get('/api', (req, res) => {
       var data = req.protocol + '://' + req.get('host') + "/media/" + String(index);
       let message;
       try{
-        message = fs.readFileSync("./messages/" + String(index) + '.txt','utf8').toString();
-      } catch(error){}
+          message = fs.readFileSync("./messages/" + String(index) + '.txt','utf8').toString();
+        } catch(error){};
       const extension = value.split('.').pop().toLowerCase(); // Bestimme Datentyp
       switch(extension) { // quick WIP
         case 'png':
@@ -53,7 +53,7 @@ app.get('/api', (req, res) => {
         case 'mov':
           ft = 'video';
           break;
-        case 'mp3':
+          case 'mp3':
         case 'ogg':
         case 'wav':
           ft = 'audio';
@@ -70,12 +70,15 @@ app.get('/api', (req, res) => {
       const response = {
         data : data,
         type : ft,
-        text : message
-      };
+          text : message
+        };
       return [key, response];
+      
+      
     } else {
-    return [key, {type : "no", data : "nice try"}];
-    }});
+      return [key, {type : "not available yet"}];
+    }
+    });
   return res.status(200).json(Object.fromEntries(allDataEntries));
   /*
   const index = parseInt(req.path.split("/").pop()) 
