@@ -15,11 +15,11 @@ const Snowfall = ({ isActive }) => {
     const createSnowflake = () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      radius: Math.random() * 5,  // Slightly larger snowflakes
+      radius: Math.random() * 4 + 1,  // Slightly larger snowflakes
       density: Math.random() * 20 + 1,
-      speed: Math.random() * 0.3 + 0.1,
+      speed: Math.random() * 0.5 + 0.1,
       angle: Math.random() * Math.PI * 2,
-      spin: Math.random() < 0.5 ? 0.02 : -0.02,
+      spin: Math.random() < 0.5 ? 0.03 : -0.03,
     });
 
     const resize = () => {
@@ -45,16 +45,16 @@ const Snowfall = ({ isActive }) => {
           flake.x, flake.y, 0,
           flake.x, flake.y, flake.radius
         );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(210, 236, 242, 0.6)');
-        gradient.addColorStop(1, 'rgba(237, 247, 249, 0.3)');
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
 
         ctx.beginPath();
         ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
         
         // Enhanced shadow
-        ctx.shadowColor = 'rgba(200, 200, 200, 0.8)';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 5;
         ctx.shadowOffsetX = 1;
         ctx.shadowOffsetY = 1;
         
@@ -65,6 +65,12 @@ const Snowfall = ({ isActive }) => {
         ctx.strokeStyle = 'rgba(200, 200, 200, 0.8)';
         ctx.lineWidth = 0.5;
         ctx.stroke();
+
+        // Reset shadow for next iteration
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
       });
 
       animationFrameId = requestAnimationFrame(animate);
@@ -72,7 +78,7 @@ const Snowfall = ({ isActive }) => {
 
     const init = () => {
       resize();
-      for (let i = 0; i < 80; i++) {  // Slightly reduced number of snowflakes
+      for (let i = 0; i < 100; i++) {  // Increased number of snowflakes
         snowflakes.push(createSnowflake());
       }
       animate();
@@ -97,7 +103,7 @@ const Snowfall = ({ isActive }) => {
         top: 0,
         left: 0,
         pointerEvents: 'none',
-        zIndex: 10,  // Reduzierter z-index
+        zIndex: 10,
       }}
     />
   );

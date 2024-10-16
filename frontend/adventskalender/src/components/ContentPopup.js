@@ -1,38 +1,63 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import Dialog from './Dialog';
 
 const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
   if (!content) return null;
 
+  const darkModeClass = darkMode 
+    ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
+    : '';
+
+  const renderContent = () => {
+    switch (content.type) {
+      case 'text':
+        return (
+          <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
+            <ReactMarkdown>{content.data}</ReactMarkdown>
+          </div>
+        );
+      case 'video':
+        return (
+          <div className="aspect-w-16 aspect-h-9">
+            <video controls className="w-full h-full object-cover">
+              <source src={content.data} type="video/mp4" />
+              Ihr Browser unterstützt das Video-Tag nicht.
+            </video>
+          </div>
+        );
+      case 'audio':
+        return (
+          <div>
+            <audio controls className="w-full">
+              <source src={content.data} type="audio/mpeg" />
+              Ihr Browser unterstützt das Audio-Tag nicht.
+            </audio>
+          </div>
+        );
+      case 'image':
+        return (
+          <div className="flex justify-center">
+            <img src={content.data} alt="Bild" className="max-w-full h-auto" />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
-      <div className={`space-y-6 sm:space-y-8 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-        <h2 className={`text-3xl sm:text-4xl font-bold text-center ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Tag {content.day}</h2>
-        <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} p-6 rounded-xl shadow-inner`}>
-          {content.type === 'text' && <p className="text-lg sm:text-xl">{content.data}</p>}
-          {content.type === 'video' && (
-            <div className="aspect-w-16 aspect-h-9">
-              <video controls className="w-full h-full object-cover rounded-lg shadow">
-                <source src={content.data} type="video/mp4" />
-                Ihr Browser unterstützt das Video-Tag nicht.
-              </video>
-            </div>
-          )}
-          {content.type === 'audio' && (
-            <div className={`${darkMode ? 'bg-gray-600' : 'bg-white'} p-4 rounded-lg shadow`}>
-              <audio controls className="w-full">
-                <source src={content.data} type="audio/mpeg" />
-                Ihr Browser unterstützt das Audio-Tag nicht.
-              </audio>
-            </div>
-          )}
-          {content.type === 'image' && (
-            <div className="flex justify-center">
-              <img src={content.data} alt="Bild" className="max-w-full h-auto rounded-lg shadow" />
-            </div>
-          )}
-        </div>
-        {content.text && <p className="text-lg sm:text-xl text-center">{content.text}</p>}
+      <div className={`space-y-6 sm:space-y-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h2 className={`text-3xl sm:text-4xl font-bold text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+          Tag {content.day}
+        </h2>
+        <div>{renderContent()}</div>
+        {content.text && (
+          <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none text-center ${darkModeClass}`}>
+            <ReactMarkdown>{content.text}</ReactMarkdown>
+          </div>
+        )}
       </div>
     </Dialog>
   );
