@@ -7,7 +7,7 @@ import Snowfall from './Snowfall';
 import axios from 'axios'; 
 
 const AdventCalendar = () => {
-  localStorage.clear() // Für Debuggingzwecke
+  //localStorage.clear() // Für Debuggingzwecke
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
