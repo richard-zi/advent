@@ -59,6 +59,7 @@ app.get('/api', (req, res) => {
           ft = 'audio';
           break;
         case 'txt':
+        case 'md':
           ft = 'text';
           const buff = fs.readFileSync(path.join(__dirname, 'media', value), 'utf8');
           data = buff.toString()
