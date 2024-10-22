@@ -8,6 +8,9 @@ const cors = require('cors');
 const app = express();
 const port = 5000;
 
+// Cleanup temporärer Dateien beim Server-Start
+helper.cleanupTempFiles();
+
 // Cache für bereits überprüfte Thumbnails
 const thumbnailCache = new Map();
 
@@ -70,6 +73,13 @@ async function getOrCreateThumbnail(filePath, fileType, index, req) {
   }
 }
 
+// Cache-Invalidierung für Thumbnails
+app.post('/api/invalidate-cache', (req, res) => {
+  thumbnailCache.clear();
+  console.log('Thumbnail-Cache wurde geleert');
+  res.status(200).send('Cache erfolgreich geleert');
+});
+
 app.get('/api', async (req, res) => {
   try {
     const allDataEntries = await Promise.all(
@@ -115,6 +125,24 @@ app.get('/api', async (req, res) => {
     console.error('Error processing API request:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Error Handling
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Graceful Shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received. Closing server...');
+  app.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
 });
 
 app.listen(port, () => {

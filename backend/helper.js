@@ -5,10 +5,35 @@ const sharp = require('sharp');
 
 // Setze den FFmpeg Pfad - passe diesen an dein System an
 const ffmpegPath = 'C:/Users/admin/Downloads/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe';
-const ffprobePath = '"C:/Users/admin/Downloads/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe"';
+const ffprobePath = 'C:/Users/admin/Downloads/ffmpeg-master-latest-win64-gpl/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe';
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
+
+// Cleanup temporäre Dateien beim Start
+function cleanupTempFiles() {
+  const thumbnailDir = path.join(__dirname, 'thumbnails');
+  if (fs.existsSync(thumbnailDir)) {
+    try {
+      const files = fs.readdirSync(thumbnailDir);
+      files.forEach(file => {
+        if (file.includes('_temp')) {
+          try {
+            fs.unlinkSync(path.join(thumbnailDir, file));
+            console.log('Gelöschte temporäre Datei:', file);
+          } catch (error) {
+            console.warn('Konnte temporäre Datei nicht löschen:', file);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Fehler beim Aufräumen temporärer Dateien:', error);
+    }
+  }
+}
+
+// Führe Cleanup beim Modulimport aus
+cleanupTempFiles();
 
 async function getThumbnailPath(filename) {
   const thumbnailDir = await ensureThumbnailDir();
@@ -52,6 +77,8 @@ async function generateThumbnail(filePath, type) {
       }
 
       return new Promise((resolve, reject) => {
+        const tempPath = path.join(path.dirname(thumbnailPath), `thumb_${filename.split('.')[0]}_temp.jpg`);
+
         ffmpeg(filePath)
           .on('start', (commandLine) => {
             console.log('FFmpeg Befehl:', commandLine);
@@ -68,7 +95,8 @@ async function generateThumbnail(filePath, type) {
           })
           .on('end', async () => {
             try {
-              const tempPath = path.join(path.dirname(thumbnailPath), `thumb_${filename.split('.')[0]}_temp.jpg`);
+              // Warte kurz, bevor die Datei weiterverarbeitet wird
+              await new Promise(resolve => setTimeout(resolve, 500));
               
               // Nachbearbeitung des Screenshots
               const metadata = await sharp(tempPath).metadata();
@@ -82,11 +110,10 @@ async function generateThumbnail(filePath, type) {
                 .jpeg({ quality: 85 })
                 .toFile(thumbnailPath);
               
-              // Temporäre Datei löschen
-              fs.unlinkSync(tempPath);
-              
               console.log('Neues Thumbnail erfolgreich generiert:', thumbnailPath);
               resolve(thumbnailPath);
+              
+              // Temporäre Dateien werden beim nächsten Server-Start aufgeräumt
             } catch (err) {
               console.error('Fehler bei der Nachbearbeitung:', err);
               reject(err);
@@ -150,5 +177,6 @@ function getFileType(filename) {
 module.exports = {
   generateThumbnail,
   ensureThumbnailDir,
-  getFileType
+  getFileType,
+  cleanupTempFiles
 };
