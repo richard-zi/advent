@@ -3,8 +3,6 @@ import React from 'react';
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
     if (!text) return '';
-    
-    // Remove Markdown formatting
     const plainText = text
       .replace(/#{1,6}\s?/g, '')
       .replace(/(\*\*|__)(.*?)\1/g, '$2')
@@ -47,7 +45,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
 
   return (
     <div 
-      className={`aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:scale-102 border relative ${
+      className={`aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:scale-102 border overflow-hidden relative ${
         isOpen 
           ? darkMode
             ? 'bg-gray-700 shadow-sm border-gray-600'
@@ -59,21 +57,29 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       onClick={() => onOpen(day)}
     >
       {isOpen ? (
-        <div className="flex flex-col items-center justify-center p-1 w-full h-full">
-          {contentPreview && contentPreview.type === 'text' && (
-            <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
-              {getPreviewText(contentPreview.data)}
-            </p>
-          )}
-          {contentPreview && contentPreview.type !== 'text' && (
-            <div className="w-full h-full flex items-center justify-center">
-              {renderMediaIcon(contentPreview.type)}
-            </div>
-          )}
-          <div className={`absolute bottom-1 right-1 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-200 text-gray-800'}`}>
-            <span className="text-xs sm:text-sm font-semibold">{day}</span>
+        <>
+          <div className="flex-1 w-full flex items-center justify-center p-2">
+            {contentPreview && contentPreview.type === 'text' && (
+              <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
+                {getPreviewText(contentPreview.data)}
+              </p>
+            )}
+            {contentPreview && contentPreview.type !== 'text' && (
+              <div className="w-full h-full flex items-center justify-center">
+                {renderMediaIcon(contentPreview.type)}
+              </div>
+            )}
           </div>
-        </div>
+          <div className={`
+            w-full h-6 sm:h-8
+            flex items-center justify-center
+            ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}
+          `}>
+            <span className={`text-sm sm:text-base font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              {day}
+            </span>
+          </div>
+        </>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center">
           <span className={`font-bold text-xl sm:text-2xl md:text-3xl ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{day}</span>
