@@ -48,6 +48,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
         );
       case 'video':
       case 'image':
+      case 'gif':
         return contentPreview.thumbnail ? (
           <div className="w-full h-full relative">
             <img

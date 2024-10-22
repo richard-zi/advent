@@ -93,6 +93,20 @@ const VideoPlayer = ({ src }) => {
   );
 };
 
+const GifPlayer = ({ src }) => {
+  return (
+    <div className="relative w-full max-w-3xl mx-auto">
+      <div className="w-full flex justify-center">
+        <img 
+          src={src} 
+          alt="GIF Animation" 
+          className="max-w-full h-auto max-h-[60vh] object-contain"
+        />
+      </div>
+    </div>
+  );
+};
+
 const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
   if (!content) return null;
 
@@ -110,6 +124,8 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
         );
       case 'video':
         return <VideoPlayer src={content.data} />;
+      case 'gif':
+        return <GifPlayer src={content.data} />;
       case 'audio':
         return <AudioPlayer src={content.data} darkMode={darkMode} />;
       case 'image':

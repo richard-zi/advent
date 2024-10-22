@@ -45,7 +45,7 @@ async function generateThumbnail(filePath, type) {
 
     console.log('Generiere neues Thumbnail für:', filename);
 
-    if (type === 'video') {
+    if (type === 'video' || type === 'gif') {
       if (!fs.existsSync(ffmpegPath)) {
         console.error('FFmpeg nicht gefunden unter:', ffmpegPath);
         throw new Error('FFmpeg nicht installiert');
@@ -129,6 +129,8 @@ function getFileType(filename) {
     case '.jpg':
     case '.jpeg':
       return 'image';
+    case '.gif':
+      return 'gif';
     case '.mp4':
     case '.m4a':
     case '.mov':

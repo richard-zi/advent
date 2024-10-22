@@ -13,6 +13,7 @@ const thumbnailCache = new Map();
 
 app.use(cors());
 app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
+app.use('/media', express.static(path.join(__dirname, 'media')));
 
 app.get('/', (req, res) => {
   res.send('Hallo Welt!');
@@ -44,7 +45,7 @@ async function getOrCreateThumbnail(filePath, fileType, index, req) {
   }
 
   try {
-    if (fileType === 'video' || fileType === 'image') {
+    if (fileType === 'video' || fileType === 'image' || fileType === 'gif') {
       const thumbnailPath = path.join(__dirname, 'thumbnails', `thumb_${index}.jpg`);
       
       // Prüfe ob Thumbnail existiert
@@ -79,7 +80,7 @@ app.get('/api', async (req, res) => {
           const fileType = helper.getFileType(value);
           let data = req.protocol + '://' + req.get('host') + "/media/" + String(index);
           
-          // Thumbnail nur für Video und Bild
+          // Thumbnail für Video, Bild und GIF
           const thumbnail = await getOrCreateThumbnail(filePath, fileType, index, req);
 
           // Handle text content
