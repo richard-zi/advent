@@ -4,10 +4,10 @@ import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
 import SettingsModal from './SettingsModal';
 import Snowfall from './Snowfall';
+import AlertMessage from './AlertMessage';
 import axios from 'axios'; 
 
 const AdventCalendar = () => {
-  //localStorage.clear() // Für Debuggingzwecke
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
@@ -15,17 +15,17 @@ const AdventCalendar = () => {
   const [calendarData, setCalendarData] = useState({});
   const [selectedContent, setSelectedContent] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    return saved !== null ? JSON.parse(saved) : true; // Default to true
+    return saved !== null ? JSON.parse(saved) : true;
   });
   const [snowfall, setSnowfall] = useState(() => {
     const saved = localStorage.getItem('snowfall');
-    return saved !== null ? JSON.parse(saved) : true; // Default to true
+    return saved !== null ? JSON.parse(saved) : true;
   });
   const settingsRef = useRef(null);
 
-  // Predefined order of doors
   const doorOrder = [
     7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
     9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
@@ -67,26 +67,26 @@ const AdventCalendar = () => {
   }, [settingsRef]);
 
   const fetchCalendarData = async () => {
-    // Mock API call to fetch calendar data
     try {
-      const response = await axios.get('http://localhost:5000/api/');  // WIP
+      const response = await axios.get('http://localhost:5000/api/');
       console.log(response.data); 
       setCalendarData(response.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      };
+    }
   };
+
   const handleDoorOpen = (day) => {
     if (!calendarData[day]) {
-      setSelectedContent({"type" : "error"});
-
-    } else  {
-      if (calendarData[day].type !== "not available yet") {
+      setSelectedContent({"type": "error"});
+    } else {
+      if (calendarData[day].type === "not available yet") {
+        setShowAlert(true);
+      } else {
         setOpenDoors(prev => ({ ...prev, [day]: true }));
+        setSelectedContent({ day, ...calendarData[day] });
       }
-      setSelectedContent({ day, ...calendarData[day] });
     }
-    
   };
 
   const handleClosePopup = () => {
@@ -108,6 +108,11 @@ const AdventCalendar = () => {
   return (
     <div className={`min-h-screen bg-gradient-to-br ${darkMode ? 'from-gray-800 to-gray-900' : 'from-gray-50 to-gray-100'} flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 relative transition-colors duration-300`}>
       <Snowfall isActive={snowfall} />
+      <AlertMessage 
+        isVisible={showAlert} 
+        onClose={() => setShowAlert(false)}
+        darkMode={darkMode}
+      />
       <div ref={settingsRef} className="absolute top-4 right-4">
         <button
           onClick={toggleSettings}
