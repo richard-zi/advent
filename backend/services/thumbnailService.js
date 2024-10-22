@@ -1,3 +1,11 @@
+/**
+ * @fileoverview /backend/services/thumbnailService.js
+ * Thumbnail Service
+ * 
+ * Verwaltet die Generierung und Verwaltung von Thumbnails für verschiedene Medientypen.
+ * Unterstützt Bilder, Videos und GIFs.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
@@ -6,10 +14,17 @@ const logger = require('../utils/logger');
 const paths = require('../config/paths');
 
 class ThumbnailService {
+  // Cache für bereits generierte Thumbnails
   static thumbnailCache = new Map();
 
+  /**
+   * Generiert ein Thumbnail für eine Mediendatei
+   * @param {string} filePath - Pfad zur Originaldatei
+   * @param {string} type - Medientyp (video, image, gif)
+   * @returns {Promise<string|null>} Pfad zum generierten Thumbnail oder null
+   */
   static async generateThumbnail(filePath, type) {
-    // Skip thumbnail generation for unsupported types
+    // Überspringe nicht unterstützte Dateitypen
     if (!['video', 'image', 'gif'].includes(type)) {
       logger.info('Skipping thumbnail generation for type:', type);
       return null;
@@ -36,6 +51,10 @@ class ThumbnailService {
     }
   }
 
+  /**
+   * Generiert ein Thumbnail für Video- oder GIF-Dateien
+   * @private
+   */
   static async generateMediaThumbnail(filePath, thumbnailPath) {
     return new Promise((resolve, reject) => {
       const tempPath = thumbnailPath.replace('.jpg', '_temp.jpg');
@@ -58,6 +77,10 @@ class ThumbnailService {
     });
   }
 
+  /**
+   * Generiert ein Thumbnail für Bilddateien
+   * @private
+   */
   static async generateImageThumbnail(filePath, thumbnailPath) {
     const metadata = await sharp(filePath).metadata();
     const targetWidth = 500;
@@ -71,6 +94,10 @@ class ThumbnailService {
     return thumbnailPath;
   }
 
+  /**
+   * Verarbeitet temporäre Dateien zu finalen Thumbnails
+   * @private
+   */
   static async processTemporaryFile(tempPath, finalPath) {
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -84,7 +111,7 @@ class ThumbnailService {
         .jpeg({ quality: 85 })
         .toFile(finalPath);
 
-      // Try to delete temp file after processing
+      // Versuche die temporäre Datei zu löschen
       try {
         if (fs.existsSync(tempPath)) {
           fs.unlinkSync(tempPath);
@@ -98,6 +125,10 @@ class ThumbnailService {
     }
   }
 
+  /**
+   * Prüft ob ein gültiges Thumbnail bereits existiert
+   * @private
+   */
   static async checkExistingThumbnail(thumbnailPath) {
     try {
       if (fs.existsSync(thumbnailPath)) {
@@ -113,6 +144,9 @@ class ThumbnailService {
     }
   }
 
+  /**
+   * Leert den Thumbnail-Cache
+   */
   static clearCache() {
     this.thumbnailCache.clear();
     logger.info('Thumbnail cache cleared');

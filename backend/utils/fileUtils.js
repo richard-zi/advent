@@ -1,9 +1,22 @@
+/**
+ * @fileoverview /backend/utils/fileUtils.js
+ * Datei-Utilities
+ * 
+ * Stellt Hilfsfunktionen für die Dateiverarbeitung bereit.
+ * Enthält Funktionen zur Typbestimmung und Dateiverwaltung.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 const paths = require('../config/paths');
 
 class FileUtils {
+  /**
+   * Ermittelt den Dateityp anhand der Dateiendung
+   * @param {string} filename - Name der zu prüfenden Datei
+   * @returns {string} Der ermittelte Dateityp
+   */
   static getFileType(filename) {
     const extension = path.extname(filename).toLowerCase();
     switch (extension) {
@@ -29,6 +42,10 @@ class FileUtils {
     }
   }
 
+  /**
+   * Räumt temporäre Dateien im Thumbnail-Verzeichnis auf
+   * Wird beim Serverstart ausgeführt
+   */
   static cleanupTempFiles() {
     if (fs.existsSync(paths.thumbnailsDir)) {
       try {
@@ -37,18 +54,23 @@ class FileUtils {
           if (file.includes('_temp')) {
             try {
               fs.unlinkSync(path.join(paths.thumbnailsDir, file));
-              logger.info('Deleted temporary file:', file);
+              logger.info('Gelöschte temporäre Datei:', file);
             } catch (error) {
-              logger.warn('Could not delete temporary file:', file);
+              logger.warn('Konnte temporäre Datei nicht löschen:', file);
             }
           }
         });
       } catch (error) {
-        logger.error('Error cleaning up temporary files:', error);
+        logger.error('Fehler beim Aufräumen temporärer Dateien:', error);
       }
     }
   }
 
+  /**
+   * Stellt sicher, dass ein Verzeichnis existiert
+   * Erstellt es bei Bedarf
+   * @param {string} dirPath - Pfad zum zu prüfenden Verzeichnis
+   */
   static ensureDirectoryExists(dirPath) {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });

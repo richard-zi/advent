@@ -1,3 +1,12 @@
+/**
+ * @fileoverview /backend/server.js
+ * Express Server
+ * 
+ * Hauptdatei des Backend-Servers.
+ * Konfiguriert und startet den Express-Server, definiert Routen
+ * und verbindet alle Komponenten der Anwendung.
+ */
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -14,24 +23,32 @@ const medium = require('./medium.json');
 const app = express();
 const port = 5000;
 
-// Cleanup on startup
+// Initialisierung: Aufräumen und Verzeichnisse vorbereiten
 FileUtils.cleanupTempFiles();
 FileUtils.ensureDirectoryExists(paths.thumbnailsDir);
 
-// Middleware
+// Middleware-Konfiguration
 app.use(corsMiddleware);
 app.use('/thumbnails', express.static(paths.thumbnailsDir));
 app.use('/media', express.static(paths.mediaDir));
 
-// Routes
+/**
+ * GET / - Basis-Route
+ * Zeigt an, dass der Server läuft
+ */
 app.get('/', (req, res) => {
   res.send('Hallo Welt!');
 });
 
+/**
+ * GET /media/:index - Medien-Route
+ * Liefert eine spezifische Mediendatei aus
+ */
 app.get('^\/media\/[0-9]+$', async (req, res) => {
   try {
     const index = parseInt(req.path.split("/").pop());
     
+    // Prüfe ob das Türchen schon geöffnet werden darf
     if (!TimingService.dateCheck(index)) {
       return res.status(423).send("File is not available yet");
     }
@@ -43,17 +60,26 @@ app.get('^\/media\/[0-9]+$', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/invalidate-cache - Cache-Invalidierung
+ * Leert den Thumbnail-Cache
+ */
 app.post('/api/invalidate-cache', (req, res) => {
   ThumbnailService.clearCache();
   res.status(200).send('Cache successfully cleared');
 });
 
+/**
+ * GET /api - Haupt-API-Route
+ * Liefert alle verfügbaren Medieninhalte mit Metadaten
+ */
 app.get('/api', async (req, res) => {
   try {
     const allDataEntries = await Promise.all(
       Object.entries(medium).map(async ([key, value]) => {
         const index = parseInt(key);
         
+        // Prüfe ob das Türchen verfügbar ist
         if (!TimingService.dateCheck(index)) {
           return [key, { type: "not available yet" }];
         }
@@ -63,7 +89,7 @@ app.get('/api', async (req, res) => {
         let data = `${req.protocol}://${req.get('host')}/media/${index}`;
         let thumbnailUrl = null;
         
-        // Generate thumbnail only for media types that support it
+        // Generiere Thumbnails nur für unterstützte Medientypen
         if (['video', 'image', 'gif'].includes(fileType)) {
           const thumbnail = await ThumbnailService.generateThumbnail(filePath, fileType);
           if (thumbnail) {
@@ -71,12 +97,12 @@ app.get('/api', async (req, res) => {
           }
         }
 
-        // Handle text content
+        // Spezialbehandlung für Textdateien
         if (fileType === 'text') {
           data = fs.readFileSync(filePath, 'utf8').toString();
         }
 
-        // Get additional message
+        // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
         return [key, {
@@ -95,10 +121,10 @@ app.get('/api', async (req, res) => {
   }
 });
 
-// Error handling
+// Globale Fehlerbehandlung
 app.use(errorHandler);
 
-// Graceful shutdown
+// Graceful Shutdown Handler
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received. Closing server...');
   app.close(() => {
@@ -107,6 +133,7 @@ process.on('SIGTERM', () => {
   });
 });
 
+// Server starten
 app.listen(port, () => {
   logger.info(`Server läuft auf http://localhost:${port}`);
 });
