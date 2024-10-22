@@ -1,83 +1,51 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const timing = require('./timing');
-const helper = require('./helper');
+const corsMiddleware = require('./middleware/cors');
+const errorHandler = require('./middleware/errorHandler');
+const MediaService = require('./services/mediaService');
+const ThumbnailService = require('./services/thumbnailService');
+const TimingService = require('./services/timingService');
+const FileUtils = require('./utils/fileUtils');
+const logger = require('./utils/logger');
+const paths = require('./config/paths');
 const medium = require('./medium.json');
-const cors = require('cors');
+
 const app = express();
 const port = 5000;
 
-// Cleanup temporärer Dateien beim Server-Start
-helper.cleanupTempFiles();
+// Cleanup on startup
+FileUtils.cleanupTempFiles();
+FileUtils.ensureDirectoryExists(paths.thumbnailsDir);
 
-// Cache für bereits überprüfte Thumbnails
-const thumbnailCache = new Map();
+// Middleware
+app.use(corsMiddleware);
+app.use('/thumbnails', express.static(paths.thumbnailsDir));
+app.use('/media', express.static(paths.mediaDir));
 
-app.use(cors());
-app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
-app.use('/media', express.static(path.join(__dirname, 'media')));
-
+// Routes
 app.get('/', (req, res) => {
   res.send('Hallo Welt!');
 });
 
-app.get('^\/media\/[0-9]+$', (req, res) => {
-  const index = parseInt(req.path.split("/").pop());
-  if (isNaN(index) || medium[index] === undefined) {
-    return res.status(404).send('File not found.');
-  }
-  if (timing.dateCheck(index)) {
-    const filePath = path.join(__dirname, 'media', medium[index]);
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        return res.status(404).send('File not found.');
-      }
-    });
-  } else {
-    return res.status(423).send("File is not available yet");
+app.get('^\/media\/[0-9]+$', async (req, res) => {
+  try {
+    const index = parseInt(req.path.split("/").pop());
+    
+    if (!TimingService.dateCheck(index)) {
+      return res.status(423).send("File is not available yet");
+    }
+
+    const filePath = await MediaService.getMediaFile(index);
+    res.sendFile(filePath);
+  } catch (error) {
+    res.status(404).send('File not found.');
   }
 });
 
-// Hilfsfunktion zum Generieren oder Abrufen eines Thumbnails
-async function getOrCreateThumbnail(filePath, fileType, index, req) {
-  // Prüfe Cache
-  if (thumbnailCache.has(index)) {
-    console.log('Verwende gecachtes Thumbnail für Index:', index);
-    return thumbnailCache.get(index);
-  }
-
-  try {
-    if (fileType === 'video' || fileType === 'image' || fileType === 'gif') {
-      const thumbnailPath = path.join(__dirname, 'thumbnails', `thumb_${index}.jpg`);
-      
-      // Prüfe ob Thumbnail existiert
-      if (fs.existsSync(thumbnailPath)) {
-        const thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/thumb_${index}.jpg`;
-        thumbnailCache.set(index, thumbnailUrl);
-        console.log('Existierendes Thumbnail gefunden für Index:', index);
-        return thumbnailUrl;
-      }
-
-      // Wenn nicht, generiere neues Thumbnail
-      console.log('Generiere neues Thumbnail für Index:', index);
-      await helper.generateThumbnail(filePath, fileType);
-      const thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/thumb_${index}.jpg`;
-      thumbnailCache.set(index, thumbnailUrl);
-      return thumbnailUrl;
-    }
-    return null;
-  } catch (error) {
-    console.error('Fehler bei Thumbnail-Verarbeitung:', error);
-    return null;
-  }
-}
-
-// Cache-Invalidierung für Thumbnails
 app.post('/api/invalidate-cache', (req, res) => {
-  thumbnailCache.clear();
-  console.log('Thumbnail-Cache wurde geleert');
-  res.status(200).send('Cache erfolgreich geleert');
+  ThumbnailService.clearCache();
+  res.status(200).send('Cache successfully cleared');
 });
 
 app.get('/api', async (req, res) => {
@@ -85,66 +53,60 @@ app.get('/api', async (req, res) => {
     const allDataEntries = await Promise.all(
       Object.entries(medium).map(async ([key, value]) => {
         const index = parseInt(key);
-        if (timing.dateCheck(index)) {
-          const filePath = path.join(__dirname, 'media', value);
-          const fileType = helper.getFileType(value);
-          let data = req.protocol + '://' + req.get('host') + "/media/" + String(index);
-          
-          // Thumbnail für Video, Bild und GIF
-          const thumbnail = await getOrCreateThumbnail(filePath, fileType, index, req);
-
-          // Handle text content
-          if (fileType === 'text') {
-            const buff = fs.readFileSync(filePath, 'utf8');
-            data = buff.toString();
-          }
-
-          // Get additional message if exists
-          let message;
-          try {
-            message = fs.readFileSync(
-              path.join(__dirname, "messages", `${index}.txt`),
-              'utf8'
-            ).toString();
-          } catch (error) {}
-
-          return [key, {
-            data,
-            type: fileType,
-            text: message,
-            thumbnail
-          }];
-        } else {
+        
+        if (!TimingService.dateCheck(index)) {
           return [key, { type: "not available yet" }];
         }
+
+        const filePath = path.join(paths.mediaDir, value);
+        const fileType = FileUtils.getFileType(value);
+        let data = `${req.protocol}://${req.get('host')}/media/${index}`;
+        let thumbnailUrl = null;
+        
+        // Generate thumbnail only for media types that support it
+        if (['video', 'image', 'gif'].includes(fileType)) {
+          const thumbnail = await ThumbnailService.generateThumbnail(filePath, fileType);
+          if (thumbnail) {
+            thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/${path.basename(thumbnail)}`;
+          }
+        }
+
+        // Handle text content
+        if (fileType === 'text') {
+          data = fs.readFileSync(filePath, 'utf8').toString();
+        }
+
+        // Get additional message
+        const message = await MediaService.getMediaMessage(index);
+
+        return [key, {
+          data,
+          type: fileType,
+          text: message,
+          thumbnail: thumbnailUrl
+        }];
       })
     );
 
     return res.status(200).json(Object.fromEntries(allDataEntries));
   } catch (error) {
-    console.error('Error processing API request:', error);
+    logger.error('Error processing API request:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Error Handling
-app.use((err, req, res, next) => {
-  console.error('Server Error:', err);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
+// Error handling
+app.use(errorHandler);
 
-// Graceful Shutdown
+// Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received. Closing server...');
+  logger.info('SIGTERM signal received. Closing server...');
   app.close(() => {
-    console.log('Server closed.');
+    logger.info('Server closed.');
     process.exit(0);
   });
 });
 
 app.listen(port, () => {
-  console.log(`Server läuft auf http://localhost:${port}`);
+  logger.info(`Server läuft auf http://localhost:${port}`);
 });
