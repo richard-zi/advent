@@ -1,34 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
-const messages = [
-  "Ho ho ho! Noch nicht so voreilig!",
-  "Geduld, junger Padawan!",
-  "Tür ist noch im Winterschlaf...",
-  "Netter Versuch, aber das Türchen hat noch Ruhepause!",
-  "Sorry, dieses Türchen macht noch einen Powernap!",
-  "Da war wohl jemand zu neugierig! 😉",
-  "Nicht spicken - Vorfreude ist die schönste Freude!",
-  "Diese Tür ist noch im Wartungsmodus... 🔧",
-  "Komm später wieder, jetzt ist Siesta!",
-  "Das Türchen ist noch beim Wellness-Tag..."
-];
+const messages = {
+  notAvailable: [
+    "Ho ho ho! Noch nicht so voreilig!",
+    "Geduld, junger Padawan!",
+    "Tür ist noch im Winterschlaf...",
+    "Netter Versuch, aber das Türchen hat noch Ruhepause!",
+    "Sorry, dieses Türchen macht noch einen Powernap!",
+    "Da war wohl jemand zu neugierig! 😉",
+    "Nicht spicken - Vorfreude ist die schönste Freude!",
+    "Diese Tür ist noch im Wartungsmodus... 🔧",
+    "Komm später wieder, jetzt ist Siesta!",
+    "Das Türchen ist noch beim Wellness-Tag..."
+  ],
+  error: [
+    "Ups! Der Inhalt konnte nicht geladen werden... 😕",
+    "Oh nein! Da ist etwas schiefgelaufen...",
+    "Da hat der Weihnachtsmann wohl was verlegt!",
+    "Content.exe hat nicht geklappt - Versuche es später nochmal!",
+    "Houston, wir haben ein Problem mit dem Inhalt!",
+    "Die Rentiere suchen noch nach dem Inhalt...",
+    "Der Weihnachtself konnte den Inhalt nicht finden 🧝‍♂️",
+    "Technische Schwierigkeiten in der Geschenkefabrik!",
+    "Error 404: Weihnachtszauber temporarily unavailable",
+    "Die Geschenkeproduktion stockt gerade... 🎁"
+  ]
+};
 
-const AlertMessage = ({ isVisible, onClose, darkMode }) => {
+const AlertMessage = ({ isVisible, onClose, darkMode, type = 'notAvailable' }) => {
   const [isShowing, setIsShowing] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (isVisible) {
-      setMessage(messages[Math.floor(Math.random() * messages.length)]);
+      const messageList = messages[type] || messages.notAvailable;
+      setMessage(messageList[Math.floor(Math.random() * messageList.length)]);
       setIsShowing(true);
       const timer = setTimeout(() => {
         setIsShowing(false);
-        setTimeout(onClose, 300); // Wait for fade out animation
+        setTimeout(onClose, 300);
       }, 4000);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, onClose]);
+  }, [isVisible, onClose, type]);
 
   if (!isVisible && !isShowing) return null;
 
@@ -44,7 +59,7 @@ const AlertMessage = ({ isVisible, onClose, darkMode }) => {
         ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}
         flex items-start space-x-3
       `}>
-        <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
+        <AlertTriangle className={`h-5 w-5 ${type === 'error' ? 'text-red-500' : 'text-yellow-500'} mt-0.5`} />
         <div className="flex-1">
           <p className="text-sm font-medium">{message}</p>
         </div>
