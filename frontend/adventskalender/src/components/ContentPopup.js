@@ -2,9 +2,10 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import Dialog from './Dialog';
 
+import SlidingGame from './SlidingGame';
+
 const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
   if (!content) return null;
-
   const darkModeClass = darkMode 
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
     : '';
@@ -36,10 +37,16 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
           </div>
         );
       case 'image':
+        
         return (
           <div className="flex justify-center">
+              <SlidingGame imageUrl={content}/> 
+            {/*
             <img src={content.data} alt="Bild" className="max-w-full h-auto" />
+            */}
           </div>
+          
+
         );
       default:
         return null;
