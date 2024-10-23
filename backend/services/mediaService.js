@@ -39,12 +39,19 @@ class MediaService {
   }
 
   /**
-   * Ermittelt den Typ einer Mediendatei
-   * @param {string} filename - Der Dateiname
-   * @returns {string} Der Medientyp
+   * Prüft ob die Datei ein reiner Countdown ist
+   * @param {string} filePath - Pfad zur Datei
+   * @returns {boolean} True wenn es sich um einen Countdown handelt
    */
-  static getMediaType(filename) {
-    return getFileType(filename);
+  static isCountdown(filePath) {
+    try {
+      if (!fs.existsSync(filePath)) return false;
+      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
+      return content === '<[countdown]>';
+    } catch (error) {
+      logger.error('Error checking countdown:', error);
+      return false;
+    }
   }
 
   /**
@@ -63,6 +70,31 @@ class MediaService {
       logger.error('Error reading message file:', error);
       return null;
     }
+  }
+
+  /**
+   * Bereitet die Medieninhalte für die API vor
+   * @param {string} filePath - Pfad zur Mediendatei
+   * @param {string} fileType - Typ der Datei
+   * @returns {Object} Die aufbereiteten Medieninhalte
+   */
+  static prepareMediaContent(filePath, fileType) {
+    if (fileType === 'text' && this.isCountdown(filePath)) {
+      return {
+        type: 'countdown',
+        data: null
+      };
+    }
+
+    let data = '';
+    if (fileType === 'text') {
+      data = fs.readFileSync(filePath, 'utf8').toString();
+    }
+
+    return {
+      type: fileType,
+      data
+    };
   }
 }
 

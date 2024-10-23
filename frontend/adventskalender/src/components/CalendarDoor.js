@@ -1,4 +1,5 @@
 import React from 'react';
+import SmallCountdown from './SmallCountdown';
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
@@ -33,6 +34,14 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const renderContent = () => {
     if (!contentPreview) return null;
 
+    if (contentPreview.type === 'countdown') {
+      return (
+        <div className="flex-1 flex items-center justify-center p-2">
+          <SmallCountdown darkMode={darkMode} />
+        </div>
+      );
+    }
+
     switch (contentPreview.type) {
       case 'text':
         return (
@@ -59,7 +68,6 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
             <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
           </div>
         ) : (
-          // Fallback für den Fall, dass kein Thumbnail verfügbar ist
           <div className="w-full h-full flex items-center justify-center">
             <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />

@@ -86,7 +86,6 @@ app.get('/api', async (req, res) => {
 
         const filePath = path.join(paths.mediaDir, value);
         const fileType = FileUtils.getFileType(value);
-        let data = `${req.protocol}://${req.get('host')}/media/${index}`;
         let thumbnailUrl = null;
         
         // Generiere Thumbnails nur für unterstützte Medientypen
@@ -97,17 +96,18 @@ app.get('/api', async (req, res) => {
           }
         }
 
-        // Spezialbehandlung für Textdateien
-        if (fileType === 'text') {
-          data = fs.readFileSync(filePath, 'utf8').toString();
-        }
+        // Verarbeite den Medieninhalt
+        const mediaContent = MediaService.prepareMediaContent(filePath, fileType);
+        const data = mediaContent.type === 'countdown' ? null : 
+          (mediaContent.type === 'text' ? mediaContent.data : 
+          `${req.protocol}://${req.get('host')}/media/${index}`);
 
         // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
         return [key, {
           data,
-          type: fileType,
+          type: mediaContent.type,
           text: message,
           thumbnail: thumbnailUrl
         }];

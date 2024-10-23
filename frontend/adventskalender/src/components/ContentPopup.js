@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Play, Pause } from 'lucide-react';
 import Dialog from './Dialog';
+import ChristmasCountdown from './ChristmasCountdown';
 
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -116,6 +117,8 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
 
   const renderContent = () => {
     switch (content.type) {
+      case 'countdown':
+        return null; // Der Countdown wird separat gerendert
       case 'text':
         return (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
@@ -142,28 +145,31 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
   return (
     <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
       <div className="space-y-8">
-        {/* Content wird zuerst gerendert */}
-        {content.type !== 'text' && (
-          <div>{renderContent()}</div>
-        )}
-
-        {/* Türchen Titel kommt nach dem Content */}
-        <div className="text-center space-y-1">
+        {/* Türchen Titel kommt zuerst */}
+        <div className="text-center">
           <h2 className={`text-4xl sm:text-5xl font-bold ${
             darkMode ? 'text-white' : 'text-gray-800'
           }`}>
             Türchen {content.day}
           </h2>
+          
+          {/* Countdown direkt unter dem Titel, wenn es ein Countdown-Typ ist */}
+          {content.type === 'countdown' && (
+            <div className="mt-6">
+              <ChristmasCountdown darkMode={darkMode} />
+            </div>
+          )}
         </div>
 
-        {/* Bei Text-Content oder zusätzlichem Text wird dieser nach dem Titel angezeigt */}
-        {(content.type === 'text' || content.text) && (
+        {/* Andere Content-Typen */}
+        {content.type !== 'countdown' && (
+          <div>{renderContent()}</div>
+        )}
+
+        {/* Message/Text wird immer am Ende angezeigt */}
+        {content.text && (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none text-center ${darkModeClass}`}>
-            {content.type === 'text' ? (
-              <ReactMarkdown>{content.data}</ReactMarkdown>
-            ) : (
-              <ReactMarkdown>{content.text}</ReactMarkdown>
-            )}
+            <ReactMarkdown>{content.text}</ReactMarkdown>
           </div>
         )}
       </div>
