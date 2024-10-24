@@ -1,50 +1,69 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef} from "react";
 import "../App.css"; // Add your image URL here, or in a global stylesheet
+import Confetti from 'react-confetti'
 
 const gridSize = 3; // 4x4 grid
-
-function SlidingGameOld2(imageUrl){
-      // Manage the position of the box
-  const [isMoved, setIsMoved] = useState(false);
-  const [amount, setAmount] = useState(300);
-
-
-  // Toggle the box position
-  const toggleMove = () => {
-    setIsMoved(!isMoved);
-    setAmount(500);
-  }
-
-  return (
-    <div className="flex justify-center items-center h-screen">
-      {/* Box to slide */}
-      <div
-        className={`
-          w-20 h-20 bg-blue-500 
-          transition-transform duration-500 ease-in-out 
-          transform ${isMoved ? `translate-x-[${amount}%]` : "translate-x-0"}
-        `}
-        onClick={toggleMove}
-      ></div>
-
-      {/* Button to trigger movement */}
-      <button
-        onClick={toggleMove}
-        className="ml-8 px-4 py-2 bg-gray-800 text-white rounded"
-      >
-        Slide Box
-      </button>
-    </div>
-  );
-};
-
-
 
 function SlidingGame(imageUrl) {
   const [puzzle, setPuzzle] = useState([]);
   const [win, setWin] = useState(false);
-  const [postions, setPositions] = useState(puzzle);
+  const [transition, setTransition] = useState([0, 0]);
+  const divRef = useRef(null);
+  const [dimensions, setDimensions] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0
+  });
 
+  const getAbsolutePosition = (element) => {
+    let x = 0;
+    let y = 0;
+    let width = element.offsetWidth;
+    let height = element.offsetHeight;
+
+    // Traverse up the DOM tree to calculate absolute position
+    x += (element.offsetLeft + element.clientLeft);
+    y += (element.offsetTop + element.clientTop);
+    element = element.offsetParent;
+    
+
+    return {
+      x,
+      y,
+      width,
+      height
+    };
+  };
+
+  useEffect(() => {
+    // whack infrastructure needed cuz the confetti package did not consider proper centering for some reason and made it our problem
+    const updateDimensions = () => {
+      if (divRef.current) {
+        const absolutePosition = getAbsolutePosition(divRef.current);
+        setDimensions(absolutePosition);
+      }
+    };
+
+    // Initial measurement
+    updateDimensions();
+
+    // Update on window resize
+    window.addEventListener('resize', updateDimensions);
+    // Update on scroll of any parent
+    const handleScroll = (event) => {
+      if (divRef.current?.contains(event.target) || event.target.contains(divRef.current)) {
+        updateDimensions();
+      }
+    };
+    document.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      document.removeEventListener('scroll', handleScroll, true);
+    };
+  }, []);
+  
   useEffect(() => {
     createInitialGrid();
   }, [])
@@ -54,11 +73,39 @@ function SlidingGame(imageUrl) {
     setPuzzle(shuffle(arr));
   }
 
+  function indexToCoords(index) {
+    return [Math.floor(index / gridSize), index % gridSize];
+  }
+
+  function coordsToIndex(coords) {
+    const [row, col] = coords
+    return gridSize * row + col; 
+  }
+
+  function getValidMoves(grid) {
+    const [row, col] = indexToCoords(grid.indexOf(gridSize * gridSize - 1));
+    const cross = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+    return cross.map(([rows, cols]) => [rows + row, cols + col]).filter(([rows, cols]) => rows >= 0 && rows < gridSize && cols >= 0 && cols < gridSize).map(
+      (coords) => coordsToIndex(coords)
+    );
+    
+  }
+
   function shuffle(grid) {
-    // Basic shuffle function
-    // return grid.sort(() => Math.random() - 0.5);
-    grid[8] = 7
-    grid[7] = 8
+    // shuffles by performing a fixed number of valid moves backwards
+    const randomMoves = 10;
+    console.log(getValidMoves(grid));
+    var lastMove = -1;
+    for(let i = 0; i < randomMoves; i++){
+      var empty = grid.indexOf(gridSize * gridSize - 1);
+      var moves = getValidMoves(grid).filter(m => m !== lastMove);
+      var chosenMove = moves[Math.floor(Math.random() * moves.length)];
+      // console.log(`Randomizing step: empty index ${empty}, moves ${moves}, chosenMove ${chosenMove}`)
+      grid[empty] = grid[chosenMove];
+      grid[chosenMove] = gridSize * gridSize - 1
+      lastMove = empty;
+      console.log(lastMove)
+    }
     return grid
   }
 
@@ -70,10 +117,10 @@ function SlidingGame(imageUrl) {
     const emptyIndex = puzzle.indexOf(gridSize * gridSize - 1); // Find the empty space
     let newPuzzle;
     if (isAdjacent(index, emptyIndex)) {
-       newPuzzle = [...puzzle];
+      newPuzzle = [...puzzle];
       [newPuzzle[index], newPuzzle[emptyIndex]] = [newPuzzle[emptyIndex], newPuzzle[index]];
+      setTransition([index, emptyIndex])
       setPuzzle(newPuzzle);
-
     }
     if (newPuzzle && isWin(newPuzzle)) {
       setWin(true);
@@ -91,58 +138,60 @@ function SlidingGame(imageUrl) {
       (Math.abs(col1 - col2) === 1 && row1 === row2) // Horizontal move
     );
   }
-
+ /*
   function getPieceTransform(index) {
-    /*
     let from, to;
     [from, to] = transition;
     if(index !== from) {
       // only define transform for clicked cell
       return ``;
     }
-    console.log(transition)
     const fromRow = Math.floor(index / gridSize);
     const fromCol = index % gridSize;
     const toRow = Math.floor(to / gridSize);
     const toCol = to % gridSize;
-    console.log(`from: ${fromRow},  ${fromCol} =>  ${toRow},  ${toCol}`)
-    console.log(`translate(${(toCol - fromCol) * 100}%, ${(toRow - fromRow) * 100}%)`)
     
-    return `translate(${toCol* 100}%, ${toRow * 100}%)`;
-    */
-    const row = Math.floor(index / gridSize);
-    const col = index % gridSize;
-    return "translate(0, 0)"
-    return `translate(${col* 100}%, ${row * 100}%) shadow-md`;
-
+    return `translate(${(toCol - fromCol) * 100}%, ${(toRow - fromRow) * 100}%)`
   }
-
+*/
   function isWin(puzz) {
-    // if puzzle array is sorted,  the game is over
+    // if puzzle array is sorted, the game is over
     return [...Array(puzz.length - 1).keys()].map(x => puzz[x] < puzz[x + 1]).reduce((x , y) => x && y)
   }
 
   return (
-    <div className="flex justify-center items-center h-screen">   
-      {
-        win && <h2> It's so over </h2>
-      }<div className="grid grid-cols-3 bg-transparent relative w-64 h-64">
+    <div className="flex justify-center" ref={divRef}>
+      {win && <Confetti
+        width={window.innerWidth}
+        height={window.innerHeight}
+        initialVelocityY={30}
+        confettiSource={{
+          x: dimensions.x + dimensions.width / 2,  // Center X relative to document
+          y: dimensions.y + dimensions.height / 2  // Center Y relative to document
+        }}
+        recycle={false}
+        tweenDuration={750}
+        gravity={1}
+        initialVelocityX={10}
+        numberOfPieces={100}
+        style={{
+          
+        }}
+      />}
+      <div className="grid grid-cols-3 bg-transparent relative w-96 h-96">
         {puzzle.map((piece, index) => (
           <div
             key={index}
             className={`relative ${piece === gridSize * gridSize - 1 ? "bg-transparent" : "bg-gray-500"} 
-                   ${win ? ``: `cursor-pointer` } transition-transform duration-300 ease-in-out`}
+                   ${win ? `` : `cursor-pointer`} transition-transform duration-300 ease-in-out`}
             onClick={() => handlePieceClick(index)}
             style={{
               backgroundImage: `url(${imageUrl.imageUrl.data})`,
               backgroundSize: `${gridSize * 100}%`,
               backgroundPosition: getPiecePosition(piece),
-              visibility: piece === gridSize * gridSize - 1 ? "hidden" : "visible", // Hide the empty space<  Q
-              transform : getPieceTransform(index)
+              visibility: piece === gridSize * gridSize - 1 ? "hidden" : "visible",
             }}
           >
-            {/* Optionally add piece numbers for debugging */}
-            {/* <span className="absolute text-black text-xl">{piece + 1}</span> */}
           </div>
         ))}
       </div>
@@ -155,4 +204,5 @@ function getPiecePosition(index) {
   const col = index % gridSize;
   return `${(col * 100) / (gridSize - 1)}% ${(row * 100) / (gridSize - 1)}%`;
 }
+
 export default SlidingGame;
