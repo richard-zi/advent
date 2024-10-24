@@ -7,7 +7,7 @@ const gridSize = 3; // 4x4 grid
 function SlidingGame(imageUrl) {
   const [puzzle, setPuzzle] = useState([]);
   const [win, setWin] = useState(false);
-  const [transition, setTransition] = useState([0, 0]);
+  // const [transition, setTransition] = useState([0, 0]);
   const divRef = useRef(null);
   const [dimensions, setDimensions] = useState({
     x: 0,
@@ -106,6 +106,10 @@ function SlidingGame(imageUrl) {
       lastMove = empty;
       console.log(lastMove)
     }
+    /*
+    grid[8] = 7
+    grid[7] = 8
+    */
     return grid
   }
 
@@ -119,7 +123,7 @@ function SlidingGame(imageUrl) {
     if (isAdjacent(index, emptyIndex)) {
       newPuzzle = [...puzzle];
       [newPuzzle[index], newPuzzle[emptyIndex]] = [newPuzzle[emptyIndex], newPuzzle[index]];
-      setTransition([index, emptyIndex])
+      // setTransition([index, emptyIndex])
       setPuzzle(newPuzzle);
     }
     if (newPuzzle && isWin(newPuzzle)) {
@@ -160,11 +164,19 @@ function SlidingGame(imageUrl) {
   }
 
   return (
-    <div className="flex justify-center" ref={divRef}>
-      {win && <Confetti
+    <div className="flex flex-col justify-center items-center">
+      <div className="p-6"> 
+      {
+        win ? 
+        <h2 className={`text-1xl sm:text-2xl font-bold text-center`}> Sehr gut!</h2>
+        : 
+        <h2 className={`text-1xl sm:text-2xl font-bold text-center`}> Kannst du das Puzzle lösen?</h2>
+      }
+      </div>     
+       {win && <Confetti
         width={window.innerWidth}
         height={window.innerHeight}
-        initialVelocityY={30}
+        initialVelocityY={25}
         confettiSource={{
           x: dimensions.x + dimensions.width / 2,  // Center X relative to document
           y: dimensions.y + dimensions.height / 2  // Center Y relative to document
@@ -178,7 +190,7 @@ function SlidingGame(imageUrl) {
           
         }}
       />}
-      <div className="grid grid-cols-3 bg-transparent relative w-96 h-96">
+      <div className="grid grid-cols-3 bg-transparent relative w-96 h-96" ref={divRef}>
         {puzzle.map((piece, index) => (
           <div
             key={index}
