@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Play, Pause } from 'lucide-react';
 import Dialog from './Dialog';
 import ChristmasCountdown from './ChristmasCountdown';
+import Poll from './Poll';
 
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -115,32 +116,38 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
     : '';
 
-  const renderContent = () => {
-    switch (content.type) {
-      case 'countdown':
-        return null; // Der Countdown wird separat gerendert
-      case 'text':
-        return (
-          <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
-            <ReactMarkdown>{content.data}</ReactMarkdown>
-          </div>
-        );
-      case 'video':
-        return <VideoPlayer src={content.data} />;
-      case 'gif':
-        return <GifPlayer src={content.data} />;
-      case 'audio':
-        return <AudioPlayer src={content.data} darkMode={darkMode} />;
-      case 'image':
-        return (
-          <div className="flex justify-center">
-            <img src={content.data} alt="Bild" className="max-w-full h-auto max-h-[60vh]" />
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+    const renderContent = () => {
+      switch (content.type) {
+        case 'countdown':
+          return (
+            <div className="mt-6">
+              <ChristmasCountdown darkMode={darkMode} />
+            </div>
+          );
+        case 'poll':
+          return <Poll doorNumber={content.day} darkMode={darkMode} />;
+        case 'text':
+          return (
+            <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
+              <ReactMarkdown>{content.data}</ReactMarkdown>
+            </div>
+          );
+        case 'video':
+          return <VideoPlayer src={content.data} />;
+        case 'gif':
+          return <GifPlayer src={content.data} />;
+        case 'audio':
+          return <AudioPlayer src={content.data} darkMode={darkMode} />;
+        case 'image':
+          return (
+            <div className="flex justify-center">
+              <img src={content.data} alt="Bild" className="max-w-full h-auto max-h-[60vh]" />
+            </div>
+          );
+        default:
+          return null;
+      }
+    };
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>

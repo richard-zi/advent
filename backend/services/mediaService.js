@@ -39,6 +39,22 @@ class MediaService {
   }
 
   /**
+   * Prüft ob die Datei eine Poll ist
+   * @param {string} filePath - Pfad zur Datei
+   * @returns {boolean} True wenn es sich um eine Poll handelt
+   */
+  static isPoll(filePath) {
+    try {
+      if (!fs.existsSync(filePath)) return false;
+      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
+      return content === '<[poll]>';
+    } catch (error) {
+      logger.error('Error checking poll:', error);
+      return false;
+    }
+  }
+
+  /**
    * Prüft ob die Datei ein reiner Countdown ist
    * @param {string} filePath - Pfad zur Datei
    * @returns {boolean} True wenn es sich um einen Countdown handelt
@@ -82,6 +98,13 @@ class MediaService {
     if (fileType === 'text' && this.isCountdown(filePath)) {
       return {
         type: 'countdown',
+        data: null
+      };
+    }
+
+    if (fileType === 'text' && this.isPoll(filePath)) {
+      return {
+        type: 'poll',
         data: null
       };
     }

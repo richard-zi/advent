@@ -1,5 +1,6 @@
 import React from 'react';
 import SmallCountdown from './SmallCountdown';
+import { BarChart2 } from 'lucide-react';
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
@@ -38,6 +39,21 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       return (
         <div className="flex-1 flex items-center justify-center p-2">
           <SmallCountdown darkMode={darkMode} />
+        </div>
+      );
+    }
+
+    if (contentPreview.type === 'poll') {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-2">
+          <BarChart2 className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${
+            darkMode ? 'text-gray-300' : 'text-gray-500'
+          } mb-1`} />
+          <span className={`text-xs sm:text-sm text-center ${
+            darkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>
+            Umfrage
+          </span>
         </div>
       );
     }
