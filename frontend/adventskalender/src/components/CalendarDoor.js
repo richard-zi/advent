@@ -1,10 +1,10 @@
 import React from 'react';
+import SmallCountdown from './SmallCountdown';
+import { BarChart2 } from 'lucide-react';
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
     if (!text) return '';
-    
-    // Remove Markdown formatting
     const plainText = text
       .replace(/#{1,6}\s?/g, '')
       .replace(/(\*\*|__)(.*?)\1/g, '$2')
@@ -21,24 +21,74 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const renderMediaIcon = (type) => {
     const iconColor = darkMode ? 'text-gray-300' : 'text-gray-500';
     switch (type) {
-      case 'video':
-        return (
-          <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
       case 'audio':
         return (
           <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
           </svg>
         );
-      case 'image':
+      default:
+        return null;
+    }
+  };
+
+  const renderContent = () => {
+    if (!contentPreview) return null;
+
+    if (contentPreview.type === 'countdown') {
+      return (
+        <div className="flex-1 flex items-center justify-center p-2">
+          <SmallCountdown darkMode={darkMode} />
+        </div>
+      );
+    }
+
+    if (contentPreview.type === 'poll') {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-2">
+          <BarChart2 className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${
+            darkMode ? 'text-gray-300' : 'text-gray-500'
+          } mb-1`} />
+          <span className={`text-xs sm:text-sm text-center ${
+            darkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>
+            Umfrage
+          </span>
+        </div>
+      );
+    }
+
+    switch (contentPreview.type) {
+      case 'text':
         return (
-          <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+          <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
+            {getPreviewText(contentPreview.data)}
+          </p>
+        );
+      case 'audio':
+        return (
+          <div className="w-full h-full flex items-center justify-center">
+            {renderMediaIcon('audio')}
+          </div>
+        );
+      case 'video':
+      case 'image':
+      case 'gif':
+        return contentPreview.thumbnail ? (
+          <div className="w-full h-full relative">
+            <img
+              src={contentPreview.thumbnail}
+              alt={`Vorschau für Türchen ${day}`}
+              className="w-full h-full object-cover absolute inset-0"
+            />
+            <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
+          </div>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
         );
       default:
         return null;
@@ -47,7 +97,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
 
   return (
     <div 
-      className={`aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:scale-102 border relative ${
+      className={`aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:scale-102 border overflow-hidden relative ${
         isOpen 
           ? darkMode
             ? 'bg-gray-700 shadow-sm border-gray-600'
@@ -59,21 +109,21 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       onClick={() => onOpen(day)}
     >
       {isOpen ? (
-        <div className="flex flex-col items-center justify-center p-1 w-full h-full">
-          {contentPreview && contentPreview.type === 'text' && (
-            <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
-              {getPreviewText(contentPreview.data)}
-            </p>
-          )}
-          {contentPreview && contentPreview.type !== 'text' && (
-            <div className="w-full h-full flex items-center justify-center">
-              {renderMediaIcon(contentPreview.type)}
-            </div>
-          )}
-          <div className={`absolute bottom-1 right-1 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-200 text-gray-800'}`}>
-            <span className="text-xs sm:text-sm font-semibold">{day}</span>
+        <>
+          <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
+            {renderContent()}
           </div>
-        </div>
+          <div className={`
+            w-full h-6 sm:h-8
+            flex items-center justify-center
+            ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}
+            relative z-10
+          `}>
+            <span className={`text-sm sm:text-base font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              {day}
+            </span>
+          </div>
+        </>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center">
           <span className={`font-bold text-xl sm:text-2xl md:text-3xl ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{day}</span>

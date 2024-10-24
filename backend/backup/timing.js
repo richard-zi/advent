@@ -1,3 +1,4 @@
+// timing.js
 const startDay = new Date("2024-10-01") //Abändern zu 1. Dez. in prod
 
 Date.prototype.addDays = function(days) {
@@ -9,9 +10,9 @@ Date.prototype.addDays = function(days) {
 function dateCheck(index){
     today = new Date();
     referenceDay = startDay.addDays(index - 1);
-    today.setHours(0, 0, 0, 0); // Normalisierung der Zeit um nur Datum zu vergleichen
-    referenceDay.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
+    referenceDay.setHours(0, 0, 0, 0);
     return today >= referenceDay;
 }
 
-module.exports = {dateCheck};
+module.exports = { dateCheck };
