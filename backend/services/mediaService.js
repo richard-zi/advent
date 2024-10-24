@@ -1,11 +1,3 @@
-/**
- * @fileoverview /backend/services/mediaService.js
- * Media Service
- * 
- * Verwaltet alle Operationen im Zusammenhang mit Mediendateien.
- * Behandelt das Laden und Verarbeiten von Medieninhalten.
- */
-
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
@@ -14,12 +6,6 @@ const paths = require('../config/paths');
 const medium = require('../medium.json');
 
 class MediaService {
-  /**
-   * Lädt eine Mediendatei anhand des Index
-   * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string>} Der Pfad zur Mediendatei
-   * @throws {Error} Wenn die Datei nicht gefunden wird
-   */
   static async getMediaFile(index) {
     try {
       if (isNaN(index) || medium[index] === undefined) {
@@ -38,11 +24,6 @@ class MediaService {
     }
   }
 
-  /**
-   * Prüft ob die Datei eine Poll ist
-   * @param {string} filePath - Pfad zur Datei
-   * @returns {boolean} True wenn es sich um eine Poll handelt
-   */
   static isPoll(filePath) {
     try {
       if (!fs.existsSync(filePath)) return false;
@@ -54,11 +35,6 @@ class MediaService {
     }
   }
 
-  /**
-   * Prüft ob die Datei ein reiner Countdown ist
-   * @param {string} filePath - Pfad zur Datei
-   * @returns {boolean} True wenn es sich um einen Countdown handelt
-   */
   static isCountdown(filePath) {
     try {
       if (!fs.existsSync(filePath)) return false;
@@ -70,11 +46,6 @@ class MediaService {
     }
   }
 
-  /**
-   * Lädt die zugehörige Nachrichtendatei für einen Index
-   * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string|null>} Der Nachrichtentext oder null
-   */
   static async getMediaMessage(index) {
     try {
       const messagePath = path.join(paths.messagesDir, `${index}.txt`);
@@ -88,12 +59,44 @@ class MediaService {
     }
   }
 
-  /**
-   * Bereitet die Medieninhalte für die API vor
-   * @param {string} filePath - Pfad zur Mediendatei
-   * @param {string} fileType - Typ der Datei
-   * @returns {Object} Die aufbereiteten Medieninhalte
-   */
+  static async savePollData(doorNumber, pollData) {
+    try {
+      const pollsDir = path.join(paths.rootDir, 'polls');
+      const pollDataPath = path.join(pollsDir, 'pollData.json');
+      
+      // Ensure polls directory exists
+      if (!fs.existsSync(pollsDir)) {
+        fs.mkdirSync(pollsDir, { recursive: true });
+      }
+
+      // Read existing poll data or create new object
+      let allPollData = {};
+      if (fs.existsSync(pollDataPath)) {
+        allPollData = JSON.parse(fs.readFileSync(pollDataPath, 'utf8'));
+      }
+
+      // Update poll data for this door
+      allPollData[doorNumber] = {
+        question: pollData.question,
+        options: pollData.options
+      };
+
+      // Save updated poll data
+      fs.writeFileSync(pollDataPath, JSON.stringify(allPollData, null, 2));
+      
+      // Initialize votes file if it doesn't exist
+      const pollVotesPath = path.join(pollsDir, 'pollVotes.json');
+      if (!fs.existsSync(pollVotesPath)) {
+        fs.writeFileSync(pollVotesPath, JSON.stringify({}));
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error saving poll data:', error);
+      throw error;
+    }
+  }
+
   static prepareMediaContent(filePath, fileType) {
     if (fileType === 'text' && this.isCountdown(filePath)) {
       return {
