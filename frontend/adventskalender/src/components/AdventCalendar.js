@@ -18,13 +18,31 @@ const AdventCalendar = () => {
   const [alertConfig, setAlertConfig] = useState({ show: false, type: 'notAvailable' });
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    return saved !== null ? JSON.parse(saved) : true;
+    if (saved !== null) {
+      return JSON.parse(saved);
+    }
+    // Check system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [snowfall, setSnowfall] = useState(() => {
     const saved = localStorage.getItem('snowfall');
     return saved !== null ? JSON.parse(saved) : true;
   });
   const settingsRef = useRef(null);
+
+  // Listen to system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      const userPreference = localStorage.getItem('darkMode');
+      if (userPreference === null) {
+        setDarkMode(e.matches);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const doorOrder = [
     7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
