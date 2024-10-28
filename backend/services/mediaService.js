@@ -1,3 +1,11 @@
+/**
+ * @fileoverview /backend/services/mediaService.js
+ * Medien-Service
+ * 
+ * Dieser Service ist für die Verwaltung und Verarbeitung von Mediendateien zuständig.
+ * Er bietet Funktionen zum Abrufen, Überprüfen und Vorbereiten von Medieninhalten.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
@@ -6,46 +14,67 @@ const paths = require('../config/paths');
 const medium = require('../medium.json');
 
 class MediaService {
+  /**
+   * Holt eine Mediendatei anhand ihres Index
+   * @param {number} index - Der Index der Mediendatei
+   * @returns {Promise<string>} Der Dateipfad der Mediendatei
+   */
   static async getMediaFile(index) {
     try {
+      // Überprüfe ob der Index gültig ist und die Datei existiert
       if (isNaN(index) || medium[index] === undefined) {
-        throw new Error('File not found');
+        throw new Error('Datei nicht gefunden');
       }
       
       const filePath = path.join(paths.mediaDir, medium[index]);
       if (!fs.existsSync(filePath)) {
-        throw new Error('File not found');
+        throw new Error('Datei nicht gefunden');
       }
       
       return filePath;
     } catch (error) {
-      logger.error('Error getting media file:', error);
+      logger.error('Fehler beim Abrufen der Mediendatei:', error);
       throw error;
     }
   }
 
+  /**
+   * Prüft ob eine Datei eine Umfrage enthält
+   * @param {string} filePath - Der zu prüfende Dateipfad
+   * @returns {boolean} True wenn es sich um eine Umfrage handelt
+   */
   static isPoll(filePath) {
     try {
       if (!fs.existsSync(filePath)) return false;
       const content = fs.readFileSync(filePath, 'utf8').toString().trim();
       return content === '<[poll]>';
     } catch (error) {
-      logger.error('Error checking poll:', error);
+      logger.error('Fehler bei der Umfrageüberprüfung:', error);
       return false;
     }
   }
 
+  /**
+   * Prüft ob eine Datei einen Countdown enthält
+   * @param {string} filePath - Der zu prüfende Dateipfad
+   * @returns {boolean} True wenn es sich um einen Countdown handelt
+   */
   static isCountdown(filePath) {
     try {
       if (!fs.existsSync(filePath)) return false;
       const content = fs.readFileSync(filePath, 'utf8').toString().trim();
       return content === '<[countdown]>';
     } catch (error) {
-      logger.error('Error checking countdown:', error);
+      logger.error('Fehler bei der Countdown-Überprüfung:', error);
       return false;
     }
   }
 
+  /**
+   * Holt eine zusätzliche Nachricht zu einer Mediendatei
+   * @param {number} index - Der Index der Mediendatei
+   * @returns {Promise<string|null>} Die zugehörige Nachricht oder null
+   */
   static async getMediaMessage(index) {
     try {
       const messagePath = path.join(paths.messagesDir, `${index}.txt`);
@@ -54,73 +83,34 @@ class MediaService {
       }
       return null;
     } catch (error) {
-      logger.error('Error reading message file:', error);
+      logger.error('Fehler beim Lesen der Nachrichtendatei:', error);
       return null;
     }
   }
 
-  static async savePollData(doorNumber, pollData) {
-    try {
-      const pollsDir = path.join(paths.rootDir, 'polls');
-      const pollDataPath = path.join(pollsDir, 'pollData.json');
-      
-      // Ensure polls directory exists
-      if (!fs.existsSync(pollsDir)) {
-        fs.mkdirSync(pollsDir, { recursive: true });
-      }
-
-      // Read existing poll data or create new object
-      let allPollData = {};
-      if (fs.existsSync(pollDataPath)) {
-        allPollData = JSON.parse(fs.readFileSync(pollDataPath, 'utf8'));
-      }
-
-      // Update poll data for this door
-      allPollData[doorNumber] = {
-        question: pollData.question,
-        options: pollData.options
-      };
-
-      // Save updated poll data
-      fs.writeFileSync(pollDataPath, JSON.stringify(allPollData, null, 2));
-      
-      // Initialize votes file if it doesn't exist
-      const pollVotesPath = path.join(pollsDir, 'pollVotes.json');
-      if (!fs.existsSync(pollVotesPath)) {
-        fs.writeFileSync(pollVotesPath, JSON.stringify({}));
-      }
-
-      return true;
-    } catch (error) {
-      logger.error('Error saving poll data:', error);
-      throw error;
-    }
-  }
-
+  /**
+   * Bereitet den Medieninhalt für die Auslieferung vor
+   * @param {string} filePath - Der Dateipfad der Mediendatei
+   * @param {string} fileType - Der Typ der Mediendatei
+   * @returns {Object} Der aufbereitete Medieninhalt
+   */
   static prepareMediaContent(filePath, fileType) {
+    // Prüfe auf spezielle Inhaltstypen
     if (fileType === 'text' && this.isCountdown(filePath)) {
-      return {
-        type: 'countdown',
-        data: null
-      };
+      return { type: 'countdown', data: null };
     }
 
     if (fileType === 'text' && this.isPoll(filePath)) {
-      return {
-        type: 'poll',
-        data: null
-      };
+      return { type: 'poll', data: null };
     }
 
+    // Behandle Textdateien
     let data = '';
     if (fileType === 'text') {
       data = fs.readFileSync(filePath, 'utf8').toString();
     }
 
-    return {
-      type: fileType,
-      data
-    };
+    return { type: fileType, data };
   }
 }
 
