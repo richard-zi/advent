@@ -9,7 +9,7 @@
 class TimingService {
     // Startdatum des Adventskalenders
     static startDay = new Date("2024-10-01"); // In Produktion auf "2024-12-01" ändern
-  
+    static loopAround = 1000; // Führe einen Looparound der Indizierung ein für das einfache Serven von mehreren Mediafiles pro Tag
     /**
      * Fügt einer Date-Instanz Tage hinzu
      * @param {Date} date - Das Ausgangsdatum
@@ -29,7 +29,7 @@ class TimingService {
      */
     static dateCheck(index) {
       const today = new Date();
-      const referenceDay = this.addDays(this.startDay, index - 1);
+      const referenceDay = this.addDays(this.startDay, index % this.loopAround - 1);
       
       today.setHours(0, 0, 0, 0);
       referenceDay.setHours(0, 0, 0, 0);

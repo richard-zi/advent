@@ -198,7 +198,7 @@ function SlidingGame(imageUrl) {
                    ${win ? `` : `cursor-pointer`} transition-transform duration-300 ease-in-out`}
             onClick={() => handlePieceClick(index)}
             style={{
-              backgroundImage: `url(${imageUrl.imageUrl.data})`,
+              backgroundImage: `url(${imageUrl.imageUrl})`,
               backgroundSize: `${gridSize * 100}%`,
               backgroundPosition: getPiecePosition(piece),
               visibility: piece === gridSize * gridSize - 1 ? "hidden" : "visible",

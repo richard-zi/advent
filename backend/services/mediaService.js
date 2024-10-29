@@ -12,6 +12,7 @@ const logger = require('../utils/logger');
 const { getFileType } = require('../utils/fileUtils');
 const paths = require('../config/paths');
 const medium = require('../medium.json');
+const timingService = require('./timingService');
 
 class MediaService {
   /**
@@ -70,6 +71,30 @@ class MediaService {
     }
   }
 
+ /**
+   * Prüft ob die Datei ein Puzzle ist.
+   * @param {string} filePath - Pfad zur Datei
+   * @returns {boolean} True wenn es sich um einen Puzzle handelt
+   */
+  static isPuzzle(filePath){
+    try {
+      if (!fs.existsSync(filePath)) return false;
+      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
+      return content === '<[puzzle]>';
+    } catch (error) {
+      logger.error('Error checking puzzle:', error);
+      return false;
+    }
+  }
+
+/**
+   * Übersetzt den Puzzleindex in einen weiteren Medienindex für das Hintergrundbild
+   * @param {int} index - Index zu dem Puzzle
+   * @returns {int} Index zu dem verknüpften Medium (ein Bild)
+   */
+  static getPuzzleImageIndex(index){
+    return index + timingService.loopAround
+  }
   /**
    * Lädt die zugehörige Nachrichtendatei für einen Index
    * @param {number} index - Der Index der Mediendatei
@@ -105,6 +130,13 @@ class MediaService {
     if (fileType === 'text' && this.isPoll(filePath)) {
       return {
         type: 'poll',
+        data: null
+      };
+    }
+
+    if (fileType === 'text' && this.isPuzzle(filePath)) {
+      return {
+        type: 'puzzle',
         data: null
       };
     }

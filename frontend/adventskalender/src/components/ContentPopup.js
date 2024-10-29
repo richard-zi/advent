@@ -4,6 +4,7 @@ import { Play, Pause } from 'lucide-react';
 import Dialog from './Dialog';
 import ChristmasCountdown from './ChristmasCountdown';
 import Poll from './Poll';
+import SlidingGame from './SlidingGame'; 
 
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -141,6 +142,12 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
           return (
             <div className="flex justify-center">
               <img src={content.data} alt="Bild" className="max-w-full h-auto max-h-[60vh]" />
+            </div>
+          );
+        case 'puzzle':
+          return (
+            <div className="flex justify-center">
+              <SlidingGame imageUrl={content.data}/>
             </div>
           );
         default:

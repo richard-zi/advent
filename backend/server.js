@@ -171,10 +171,26 @@ app.get('/api', async (req, res) => {
 
         // Verarbeite den Medieninhalt
         const mediaContent = MediaService.prepareMediaContent(filePath, fileType);
+        let data;
+        switch(mediaContent.type){
+          case 'countdown':
+          case 'poll': 
+            data = null;
+            break;
+          case 'text':
+            data = mediaContent.data;
+            break;
+          case 'puzzle':
+            data =  `${req.protocol}://${req.get('host')}/media/${MediaService.getPuzzleImageIndex(index)}`;
+            break;
+          default:
+            data = `${req.protocol}://${req.get('host')}/media/${index}`;
+        }
+        /*
         const data = mediaContent.type === 'countdown' || mediaContent.type === 'poll' ? null : 
           (mediaContent.type === 'text' ? mediaContent.data : 
           `${req.protocol}://${req.get('host')}/media/${index}`);
-
+        */
         // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
