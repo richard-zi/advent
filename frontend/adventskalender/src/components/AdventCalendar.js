@@ -30,7 +30,8 @@ const AdventCalendar = () => {
     return saved !== null ? JSON.parse(saved) : true;
   });
   const settingsRef = useRef(null);
-
+  const [doorStates, setDoorStates] = useState(Object.fromEntries([...Array(24).keys()].map((key) => [key, {}])));
+  
   // Listen to system theme changes
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -108,6 +109,16 @@ const AdventCalendar = () => {
     }
   };
 
+  const setDoorState = (day) => {
+    return (newObj) => {
+      setDoorStates((prev) => ({...prev, [day]: newObj}));
+    }
+  }
+
+  const adder = (val1) => {
+    return (val2) => val1 + val2
+  }
+
   const handleClosePopup = () => {
     setSelectedContent(null);
   };
@@ -123,7 +134,6 @@ const AdventCalendar = () => {
   const toggleSnowfall = () => {
     setSnowfall(prev => !prev);
   };
-
   return (
     <div className={`min-h-screen bg-gradient-to-br ${
       darkMode ? 'from-gray-800 to-gray-900' : 'from-gray-50 to-gray-100'
@@ -185,6 +195,8 @@ const AdventCalendar = () => {
         onClose={handleClosePopup}
         content={selectedContent}
         darkMode={darkMode}
+        doorStates={doorStates}
+        setDoorStates={setDoorStates}
       />
     </div>
   );

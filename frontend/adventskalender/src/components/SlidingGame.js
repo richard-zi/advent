@@ -4,10 +4,15 @@ import Confetti from 'react-confetti'
 
 const gridSize = 3; // 4x4 grid
 
-function SlidingGame(imageUrl) {
-  const [puzzle, setPuzzle] = useState([]);
-  const [win, setWin] = useState(false);
+function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
+  console.log(doorStates[day].puzzle)
+  const [puzzle, setPuzzle] = useState(doorStates[String(day)].puzzle || createInitialGrid());
+  const [win, setWin] = useState(doorStates[String(day)].win || false);
+  // TODO: try shit with effects
+  // const [puzzle, setPuzzle] = useState([]);
+  // const [win, setWin] = useState(false);
   // const [transition, setTransition] = useState([0, 0]);
+  // console.log(dayState)
   const divRef = useRef(null);
   const [dimensions, setDimensions] = useState({
     x: 0,
@@ -63,14 +68,15 @@ function SlidingGame(imageUrl) {
       document.removeEventListener('scroll', handleScroll, true);
     };
   }, []);
-  
+
   useEffect(() => {
-    createInitialGrid();
-  }, [])
+     setDoorStates(prev => ({...prev, [day] : {...prev[day] , puzzle: puzzle, win:win}}));
+  }, [puzzle, win]);
+
 
   function createInitialGrid() {
     const arr = Array.from({ length: gridSize * gridSize }, (_, i) => i);
-    setPuzzle(shuffle(arr));
+    return (shuffle(arr));
   }
 
   function indexToCoords(index) {
@@ -94,7 +100,6 @@ function SlidingGame(imageUrl) {
   function shuffle(grid) {
     // shuffles by performing a fixed number of valid moves backwards
     const randomMoves = 10;
-    console.log(getValidMoves(grid));
     var lastMove = -1;
     for(let i = 0; i < randomMoves; i++){
       var empty = grid.indexOf(gridSize * gridSize - 1);
@@ -104,7 +109,6 @@ function SlidingGame(imageUrl) {
       grid[empty] = grid[chosenMove];
       grid[chosenMove] = gridSize * gridSize - 1
       lastMove = empty;
-      console.log(lastMove)
     }
     /*
     grid[8] = 7
@@ -191,21 +195,23 @@ function SlidingGame(imageUrl) {
         }}
       />}
       <div className="grid grid-cols-3 bg-transparent relative w-96 h-96" ref={divRef}>
-        {puzzle.map((piece, index) => (
+        {
+        puzzle.map((piece, index) => (
           <div
             key={index}
             className={`relative ${piece === gridSize * gridSize - 1 ? "bg-transparent" : "bg-gray-500"} 
                    ${win ? `` : `cursor-pointer`} transition-transform duration-300 ease-in-out`}
             onClick={() => handlePieceClick(index)}
             style={{
-              backgroundImage: `url(${imageUrl.imageUrl})`,
+              backgroundImage: `url(${imageUrl})`,
               backgroundSize: `${gridSize * 100}%`,
               backgroundPosition: getPiecePosition(piece),
               visibility: piece === gridSize * gridSize - 1 ? "hidden" : "visible",
             }}
           >
           </div>
-        ))}
+        ))
+      }
       </div>
     </div>
   );

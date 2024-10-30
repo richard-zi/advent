@@ -110,8 +110,9 @@ const GifPlayer = ({ src }) => {
   );
 };
 
-const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
+const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorStates}) => {
   if (!content) return null;
+  console.log(doorStates);
   const darkModeClass = darkMode 
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
     : '';
@@ -147,7 +148,7 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode }) => {
         case 'puzzle':
           return (
             <div className="flex justify-center">
-              <SlidingGame imageUrl={content.data}/>
+              <SlidingGame imageUrl={content.data} doorStates={doorStates} setDoorStates={setDoorStates} day={content.day}/>
             </div>
           );
         default:
