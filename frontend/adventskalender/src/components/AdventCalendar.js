@@ -108,17 +108,7 @@ const AdventCalendar = () => {
       setSelectedContent({ day, ...calendarData[day] });
     }
   };
-
-  const setDoorState = (day) => {
-    return (newObj) => {
-      setDoorStates((prev) => ({...prev, [day]: newObj}));
-    }
-  }
-
-  const adder = (val1) => {
-    return (val2) => val1 + val2
-  }
-
+  
   const handleClosePopup = () => {
     setSelectedContent(null);
   };

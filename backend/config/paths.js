@@ -13,10 +13,12 @@ const rootDir = path.resolve(__dirname, '..');  // Ein Verzeichnis über config/
 const mediaDir = path.join(rootDir, 'media');  // Speicherort für Medieninhalte
 const thumbnailsDir = path.join(rootDir, 'thumbnails');  // Speicherort für generierte Thumbnails
 const messagesDir = path.join(rootDir, 'messages');  // Speicherort für zusätzliche Nachrichtendateien
+const assetDir = path.join(rootDir, 'assets');
 
 module.exports = {
   rootDir,
   mediaDir,
   thumbnailsDir,
-  messagesDir
+  messagesDir,
+  assetDir
 };

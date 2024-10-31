@@ -25,7 +25,7 @@ class ThumbnailService {
    */
   static async generateThumbnail(filePath, type) {
     // Überspringe nicht unterstützte Dateitypen
-    if (!['video', 'image', 'gif'].includes(type)) {
+    if (!['video', 'image', 'gif', 'puzzle'].includes(type)) {
       logger.info('Skipping thumbnail generation for type:', type);
       return null;
     }
@@ -40,6 +40,9 @@ class ThumbnailService {
 
       logger.info('Generating new thumbnail for:', filename);
 
+      if(type === 'puzzle'){
+        return fs.copyFileSync(path.join(paths.assetDir, "puzzle.jpg"), path.join(paths.thumbnailsDir,  `thumb_${filename.split('.')[0]}.jpg`))
+      }
       if (type === 'video' || type === 'gif') {
         return this.generateMediaThumbnail(filePath, thumbnailPath);
       } else if (type === 'image') {

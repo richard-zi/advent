@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const corsMiddleware = require('./middleware/cors');
 const errorHandler = require('./middleware/errorHandler');
+const timingMiddleware = require('./middleware/timingMiddleware')
 const MediaService = require('./services/mediaService');
 const PollService = require('./services/pollService');
 const ThumbnailService = require('./services/thumbnailService');
@@ -32,8 +33,8 @@ PollService.initializePolls();
 // Middleware-Konfiguration
 app.use(corsMiddleware);
 app.use(express.json());
-app.use('/thumbnails', express.static(paths.thumbnailsDir));
-app.use('/media', express.static(paths.mediaDir));
+app.use('/thumbnails', timingMiddleware, express.static(paths.thumbnailsDir));
+app.use('/media', timingMiddleware, express.static(paths.mediaDir));
 
 /**
  * GET / - Basis-Route
@@ -133,6 +134,7 @@ app.post('/api/poll/:doorNumber/vote', async (req, res) => {
   }
 });
 
+
 /**
  * POST /api/invalidate-cache - Cache-Invalidierung
  * Leert den Thumbnail-Cache
@@ -182,6 +184,8 @@ app.get('/api', async (req, res) => {
             break;
           case 'puzzle':
             data =  `${req.protocol}://${req.get('host')}/media/${MediaService.getPuzzleImageIndex(index)}`;
+            const thumbnail = await ThumbnailService.generateThumbnail(path.join(filePath), "puzzle");
+            thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/${path.basename(thumbnail)}`;
             break;
           default:
             data = `${req.protocol}://${req.get('host')}/media/${index}`;
