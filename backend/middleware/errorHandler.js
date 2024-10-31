@@ -1,24 +1,29 @@
 /**
  * @fileoverview /backend/middleware/errorHandler.js
- * Express Fehlerbehandlungs-Middleware
+ * Zentrale Fehlerbehandlungs-Middleware
  * 
- * Zentrale Fehlerbehandlung für die Express-Anwendung.
- * Fängt alle Fehler ab und sendet eine einheitliche Fehlerantwort.
+ * Diese Middleware ist für die einheitliche Behandlung von Fehlern in der Express-Anwendung zuständig.
+ * Sie fängt alle Fehler ab und formatiert sie in ein konsistentes Antwortformat.
  */
 
 const logger = require('../utils/logger');
 
 /**
  * Express Fehlerbehandlungs-Middleware
- * @param {Error} err - Der aufgetretene Fehler
- * @param {Request} req - Express Request Objekt
- * @param {Response} res - Express Response Objekt
- * @param {Function} next - Express next Funktion
+ * Diese Middleware wird automatisch aufgerufen, wenn Fehler in der Anwendung auftreten
+ * 
+ * @param {Error} err - Das Fehlerobjekt, das aufgetreten ist
+ * @param {Object} req - Express Request-Objekt
+ * @param {Object} res - Express Response-Objekt
+ * @param {Function} next - Express next-Funktion (wird hier nicht verwendet)
  */
 const errorHandler = (err, req, res, next) => {
+  // Logge den Fehler für Debugging und Monitoring
   logger.error('Server Error:', err);
   
-  // Sende detaillierte Fehlermeldungen nur in der Entwicklungsumgebung
+  // Sende eine formatierte Fehlerantwort zurück
+  // In der Entwicklungsumgebung werden detaillierte Fehlermeldungen gesendet
+  // In der Produktion werden nur allgemeine Fehlermeldungen gezeigt
   res.status(500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined

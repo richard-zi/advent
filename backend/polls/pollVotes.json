@@ -1,12 +1,10 @@
 {
   "7": {
     "options": {
-      "Gold": 1,
-      "Grün": 1
+      "Test 1": 1
     },
     "voters": {
-      "user_rg3itcu9v": "Gold",
-      "user_zuo9dcot5": "Grün"
+      "user_rd60efo5x": "Test 1"
     }
   }
 }

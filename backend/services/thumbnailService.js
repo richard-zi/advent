@@ -1,9 +1,10 @@
 /**
  * @fileoverview /backend/services/thumbnailService.js
- * Thumbnail Service
+ * Thumbnail-Service
  * 
- * Verwaltet die Generierung und Verwaltung von Thumbnails für verschiedene Medientypen.
- * Unterstützt Bilder, Videos und GIFs.
+ * Dieser Service ist für die Erstellung und Verwaltung von Vorschaubildern zuständig.
+ * Er unterstützt die Generierung von Thumbnails für verschiedene Medientypen wie
+ * Bilder, Videos und GIFs.
  */
 
 const fs = require('fs');
@@ -14,14 +15,14 @@ const logger = require('../utils/logger');
 const paths = require('../config/paths');
 
 class ThumbnailService {
-  // Cache für bereits generierte Thumbnails
+  // Cache für bereits generierte Thumbnails zur Verbesserung der Performance
   static thumbnailCache = new Map();
 
   /**
    * Generiert ein Thumbnail für eine Mediendatei
    * @param {string} filePath - Pfad zur Originaldatei
    * @param {string} type - Medientyp (video, image, gif)
-   * @returns {Promise<string|null>} Pfad zum generierten Thumbnail oder null
+   * @returns {Promise<string|null>} Pfad zum generierten Thumbnail oder null bei Fehler
    */
   static async generateThumbnail(filePath, type) {
     // Überspringe nicht unterstützte Dateitypen
@@ -34,11 +35,12 @@ class ThumbnailService {
       const filename = path.basename(filePath);
       const thumbnailPath = path.join(paths.thumbnailsDir, `thumb_${filename.split('.')[0]}.jpg`);
 
+      // Prüfe ob bereits ein gültiges Thumbnail existiert
       if (await this.checkExistingThumbnail(thumbnailPath)) {
         return thumbnailPath;
       }
 
-      logger.info('Generating new thumbnail for:', filename);
+      logger.info('Generiere neues Thumbnail für:', filename);
 
       if(type === 'puzzle'){
         return fs.copyFileSync(path.join(paths.assetDir, "puzzle.jpg"), path.join(paths.thumbnailsDir,  `thumb_${filename.split('.')[0]}.jpg`))
@@ -49,7 +51,7 @@ class ThumbnailService {
         return this.generateImageThumbnail(filePath, thumbnailPath);
       }
     } catch (error) {
-      logger.error('Error in generateThumbnail:', error);
+      logger.error('Fehler bei der Thumbnail-Generierung:', error);
       return null;
     }
   }
@@ -57,6 +59,9 @@ class ThumbnailService {
   /**
    * Generiert ein Thumbnail für Video- oder GIF-Dateien
    * @private
+   * @param {string} filePath - Pfad zur Originaldatei
+   * @param {string} thumbnailPath - Zielpfad für das Thumbnail
+   * @returns {Promise<string>} Pfad zum generierten Thumbnail
    */
   static async generateMediaThumbnail(filePath, thumbnailPath) {
     return new Promise((resolve, reject) => {
@@ -83,6 +88,9 @@ class ThumbnailService {
   /**
    * Generiert ein Thumbnail für Bilddateien
    * @private
+   * @param {string} filePath - Pfad zur Originaldatei
+   * @param {string} thumbnailPath - Zielpfad für das Thumbnail
+   * @returns {Promise<string>} Pfad zum generierten Thumbnail
    */
   static async generateImageThumbnail(filePath, thumbnailPath) {
     const metadata = await sharp(filePath).metadata();
@@ -100,6 +108,8 @@ class ThumbnailService {
   /**
    * Verarbeitet temporäre Dateien zu finalen Thumbnails
    * @private
+   * @param {string} tempPath - Pfad zur temporären Datei
+   * @param {string} finalPath - Zielpfad für das finale Thumbnail
    */
   static async processTemporaryFile(tempPath, finalPath) {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -109,6 +119,7 @@ class ThumbnailService {
       const targetWidth = 500;
       const targetHeight = Math.round(targetWidth * (metadata.height / metadata.width));
 
+      // Generiere das finale Thumbnail
       await sharp(tempPath)
         .resize(targetWidth, targetHeight, { fit: 'fill' })
         .jpeg({ quality: 85 })
@@ -120,10 +131,10 @@ class ThumbnailService {
           fs.unlinkSync(tempPath);
         }
       } catch (error) {
-        logger.warn('Could not delete temporary file:', tempPath);
+        logger.warn('Konnte temporäre Datei nicht löschen:', tempPath);
       }
     } catch (error) {
-      logger.error('Error processing temporary file:', error);
+      logger.error('Fehler bei der Verarbeitung der temporären Datei:', error);
       throw error;
     }
   }
@@ -131,13 +142,15 @@ class ThumbnailService {
   /**
    * Prüft ob ein gültiges Thumbnail bereits existiert
    * @private
+   * @param {string} thumbnailPath - Pfad zum zu prüfenden Thumbnail
+   * @returns {Promise<boolean>} True wenn ein gültiges Thumbnail existiert
    */
   static async checkExistingThumbnail(thumbnailPath) {
     try {
       if (fs.existsSync(thumbnailPath)) {
         const metadata = await sharp(thumbnailPath).metadata();
         if (metadata.width && metadata.height) {
-          logger.info('Using existing thumbnail:', thumbnailPath);
+          logger.info('Verwende existierendes Thumbnail:', thumbnailPath);
           return true;
         }
       }
@@ -152,7 +165,7 @@ class ThumbnailService {
    */
   static clearCache() {
     this.thumbnailCache.clear();
-    logger.info('Thumbnail cache cleared');
+    logger.info('Thumbnail-Cache geleert');
   }
 }
 

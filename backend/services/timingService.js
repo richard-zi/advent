@@ -1,9 +1,10 @@
 /**
  * @fileoverview /backend/services/timingService.js
- * Timing Service
+ * Timing-Service
  * 
- * Verwaltet die zeitliche Steuerung des Adventskalenders.
- * Bestimmt, wann welche Türchen geöffnet werden können.
+ * Dieser Service ist für die zeitliche Steuerung des Adventskalenders zuständig.
+ * Er kontrolliert, wann welche Türchen geöffnet werden können und stellt sicher,
+ * dass Inhalte erst zum vorgesehenen Zeitpunkt zugänglich sind.
  */
 
 class TimingService {
@@ -37,5 +38,4 @@ class TimingService {
       return today >= referenceDay;
     }
   }
-  
-  module.exports = TimingService;
+module.exports = TimingService;

@@ -1,9 +1,9 @@
 /**
  * @fileoverview /backend/services/pollService.js
- * Poll Service
+ * Umfrage-Service
  * 
- * Verwaltet die Umfragefunktionalität des Adventskalenders.
- * Behandelt das Speichern und Abrufen von Umfragedaten und Abstimmungen.
+ * Dieser Service verwaltet die Umfragefunktionalität des Adventskalenders.
+ * Er behandelt das Speichern und Abrufen von Umfragedaten sowie die Verarbeitung von Abstimmungen.
  */
 
 const fs = require('fs');
@@ -12,22 +12,26 @@ const logger = require('../utils/logger');
 const paths = require('../config/paths');
 
 class PollService {
+  // Definiere wichtige Verzeichnisse und Dateipfade
   static pollsDir = path.join(paths.rootDir, 'polls');
   static pollDataFile = path.join(this.pollsDir, 'pollData.json');
   static pollVotesFile = path.join(this.pollsDir, 'pollVotes.json');
 
   /**
-   * Initialisiert die notwendigen Verzeichnisse und Dateien für Polls
+   * Initialisiert die notwendige Verzeichnisstruktur für Umfragen
    */
   static initializePolls() {
+    // Erstelle das Umfrageverzeichnis falls es nicht existiert
     if (!fs.existsSync(this.pollsDir)) {
       fs.mkdirSync(this.pollsDir, { recursive: true });
     }
     
+    // Erstelle die Umfragedatendatei falls sie nicht existiert
     if (!fs.existsSync(this.pollDataFile)) {
       fs.writeFileSync(this.pollDataFile, JSON.stringify({}));
     }
 
+    // Erstelle die Abstimmungsdatei falls sie nicht existiert
     if (!fs.existsSync(this.pollVotesFile)) {
       fs.writeFileSync(this.pollVotesFile, JSON.stringify({}));
     }
@@ -35,7 +39,7 @@ class PollService {
 
   /**
    * Lädt die Umfragedaten für ein bestimmtes Türchen
-   * @param {number} doorNumber - Nummer des Türchens
+   * @param {number} doorNumber - Die Türchennummer
    * @returns {Promise<Object|null>} Die Umfragedaten oder null
    */
   static async getPollData(doorNumber) {
@@ -43,59 +47,42 @@ class PollService {
       const pollData = JSON.parse(fs.readFileSync(this.pollDataFile, 'utf8'));
       return pollData[doorNumber] || null;
     } catch (error) {
-      logger.error('Error getting poll data:', error);
+      logger.error('Fehler beim Abrufen der Umfragedaten:', error);
       return null;
     }
   }
 
   /**
-   * Speichert neue Umfragedaten für ein Türchen
-   * @param {number} doorNumber - Nummer des Türchens
-   * @param {Object} data - Die zu speichernden Umfragedaten
-   * @returns {Promise<boolean>} True wenn erfolgreich gespeichert
-   */
-  static async setPollData(doorNumber, data) {
-    try {
-      const pollData = JSON.parse(fs.readFileSync(this.pollDataFile, 'utf8'));
-      pollData[doorNumber] = data;
-      fs.writeFileSync(this.pollDataFile, JSON.stringify(pollData, null, 2));
-      return true;
-    } catch (error) {
-      logger.error('Error setting poll data:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Speichert eine neue Abstimmung
-   * @param {number} doorNumber - Nummer des Türchens
+   * Speichert eine Abstimmung für eine Umfrage
+   * @param {number} doorNumber - Die Türchennummer
    * @param {string} option - Die gewählte Option
-   * @param {string} userId - ID des abstimmenden Users
-   * @returns {Promise<Object>} Ergebnis der Abstimmung
+   * @param {string} userId - Die ID des abstimmenden Benutzers
+   * @returns {Promise<Object>} Das Ergebnis der Abstimmung
    */
   static async vote(doorNumber, option, userId) {
     try {
       const votes = JSON.parse(fs.readFileSync(this.pollVotesFile, 'utf8'));
       
-      // Prüfe ob User bereits abgestimmt hat
+      // Prüfe ob der Benutzer bereits abgestimmt hat
       if (votes[doorNumber]?.voters?.[userId]) {
-        return { success: false, message: 'Already voted' };
+        return { success: false, message: 'Bereits abgestimmt' };
       }
 
-      // Initialisiere Türchen wenn noch nicht vorhanden
+      // Initialisiere die Datenstruktur für diese Umfrage falls nötig
       if (!votes[doorNumber]) {
         votes[doorNumber] = { options: {}, voters: {} };
       }
 
-      // Initialisiere Option wenn noch nicht vorhanden
+      // Initialisiere den Zähler für diese Option falls nötig
       if (!votes[doorNumber].options[option]) {
         votes[doorNumber].options[option] = 0;
       }
 
-      // Speichere Abstimmung
+      // Erfasse die Abstimmung
       votes[doorNumber].options[option]++;
       votes[doorNumber].voters[userId] = option;
 
+      // Speichere die aktualisierten Abstimmungsdaten
       fs.writeFileSync(this.pollVotesFile, JSON.stringify(votes, null, 2));
 
       return { 
@@ -104,14 +91,14 @@ class PollService {
         userVote: option
       };
     } catch (error) {
-      logger.error('Error recording vote:', error);
-      return { success: false, message: 'Error recording vote' };
+      logger.error('Fehler beim Erfassen der Abstimmung:', error);
+      return { success: false, message: 'Fehler beim Erfassen der Abstimmung' };
     }
   }
 
   /**
-   * Lädt alle Abstimmungen für ein Türchen
-   * @param {number} doorNumber - Nummer des Türchens
+   * Ruft die Abstimmungsergebnisse für ein Türchen ab
+   * @param {number} doorNumber - Die Türchennummer
    * @returns {Promise<Object>} Die Abstimmungsergebnisse
    */
   static async getVotes(doorNumber) {
@@ -119,15 +106,15 @@ class PollService {
       const votes = JSON.parse(fs.readFileSync(this.pollVotesFile, 'utf8'));
       return votes[doorNumber]?.options || {};
     } catch (error) {
-      logger.error('Error getting votes:', error);
+      logger.error('Fehler beim Abrufen der Abstimmungen:', error);
       return {};
     }
   }
 
   /**
-   * Prüft ob und wie ein User bereits abgestimmt hat
-   * @param {number} doorNumber - Nummer des Türchens
-   * @param {string} userId - ID des Users
+   * Prüft die Abstimmung eines bestimmten Benutzers
+   * @param {number} doorNumber - Die Türchennummer
+   * @param {string} userId - Die Benutzer-ID
    * @returns {Promise<string|null>} Die gewählte Option oder null
    */
   static async getUserVote(doorNumber, userId) {
@@ -135,7 +122,7 @@ class PollService {
       const votes = JSON.parse(fs.readFileSync(this.pollVotesFile, 'utf8'));
       return votes[doorNumber]?.voters?.[userId] || null;
     } catch (error) {
-      logger.error('Error getting user vote:', error);
+      logger.error('Fehler beim Abrufen der Benutzerabstimmung:', error);
       return null;
     }
   }

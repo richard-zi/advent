@@ -1,15 +1,27 @@
 /**
  * @fileoverview /backend/middleware/cors.js
- * CORS Middleware Konfiguration
+ * CORS (Cross-Origin Resource Sharing) Middleware-Konfiguration
  * 
- * Konfiguriert Cross-Origin Resource Sharing (CORS) für die API.
- * Ermöglicht Zugriffe von anderen Domains auf die API.
+ * Diese Datei konfiguriert die CORS-Einstellungen für die API.
+ * CORS ist notwendig, um Anfragen von anderen Domains zu erlauben,
+ * was besonders wichtig für die Frontend-Backend-Kommunikation ist.
  */
 
 const cors = require('cors');
 
-// Erstelle CORS-Middleware mit Standardkonfiguration
-// In Produktion sollte dies weiter eingeschränkt werden
+// Erstelle eine CORS-Middleware mit Standardkonfiguration
+// WICHTIG: In der Produktionsumgebung sollten die CORS-Einstellungen
+// restriktiver sein und nur spezifische Domains zulassen
 const corsMiddleware = cors();
+
+// Alternativ könnte man auch eine spezifischere Konfiguration verwenden:
+/*
+const corsMiddleware = cors({
+  origin: ['http://localhost:3000', 'https://ihre-produktions-domain.de'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+});
+*/
 
 module.exports = corsMiddleware;

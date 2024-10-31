@@ -1,9 +1,9 @@
 /**
  * @fileoverview /backend/services/mediaService.js
- * Media Service
+ * Medien-Service
  * 
- * Verwaltet alle Operationen im Zusammenhang mit Mediendateien.
- * Behandelt das Laden und Verarbeiten von Medieninhalten.
+ * Dieser Service ist für die Verwaltung und Verarbeitung von Mediendateien zuständig.
+ * Er bietet Funktionen zum Abrufen, Überprüfen und Vorbereiten von Medieninhalten.
  */
 
 const fs = require('fs');
@@ -16,33 +16,33 @@ const timingService = require('./timingService');
 
 class MediaService {
   /**
-   * Lädt eine Mediendatei anhand des Index
+   * Holt eine Mediendatei anhand ihres Index
    * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string>} Der Pfad zur Mediendatei
-   * @throws {Error} Wenn die Datei nicht gefunden wird
+   * @returns {Promise<string>} Der Dateipfad der Mediendatei
    */
   static async getMediaFile(index) {
     try {
+      // Überprüfe ob der Index gültig ist und die Datei existiert
       if (isNaN(index) || medium[index] === undefined) {
-        throw new Error('File not found');
+        throw new Error('Datei nicht gefunden');
       }
       
       const filePath = path.join(paths.mediaDir, medium[index]);
       if (!fs.existsSync(filePath)) {
-        throw new Error('File not found');
+        throw new Error('Datei nicht gefunden');
       }
       
       return filePath;
     } catch (error) {
-      logger.error('Error getting media file:', error);
+      logger.error('Fehler beim Abrufen der Mediendatei:', error);
       throw error;
     }
   }
 
   /**
-   * Prüft ob die Datei eine Poll ist
-   * @param {string} filePath - Pfad zur Datei
-   * @returns {boolean} True wenn es sich um eine Poll handelt
+   * Prüft ob eine Datei eine Umfrage enthält
+   * @param {string} filePath - Der zu prüfende Dateipfad
+   * @returns {boolean} True wenn es sich um eine Umfrage handelt
    */
   static isPoll(filePath) {
     try {
@@ -50,14 +50,14 @@ class MediaService {
       const content = fs.readFileSync(filePath, 'utf8').toString().trim();
       return content === '<[poll]>';
     } catch (error) {
-      logger.error('Error checking poll:', error);
+      logger.error('Fehler bei der Umfrageüberprüfung:', error);
       return false;
     }
   }
 
   /**
-   * Prüft ob die Datei ein reiner Countdown ist
-   * @param {string} filePath - Pfad zur Datei
+   * Prüft ob eine Datei einen Countdown enthält
+   * @param {string} filePath - Der zu prüfende Dateipfad
    * @returns {boolean} True wenn es sich um einen Countdown handelt
    */
   static isCountdown(filePath) {
@@ -66,7 +66,7 @@ class MediaService {
       const content = fs.readFileSync(filePath, 'utf8').toString().trim();
       return content === '<[countdown]>';
     } catch (error) {
-      logger.error('Error checking countdown:', error);
+      logger.error('Fehler bei der Countdown-Überprüfung:', error);
       return false;
     }
   }
@@ -96,9 +96,9 @@ class MediaService {
     return index + timingService.loopAround
   }
   /**
-   * Lädt die zugehörige Nachrichtendatei für einen Index
+   * Holt eine zusätzliche Nachricht zu einer Mediendatei
    * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string|null>} Der Nachrichtentext oder null
+   * @returns {Promise<string|null>} Die zugehörige Nachricht oder null
    */
   static async getMediaMessage(index) {
     try {
@@ -108,30 +108,25 @@ class MediaService {
       }
       return null;
     } catch (error) {
-      logger.error('Error reading message file:', error);
+      logger.error('Fehler beim Lesen der Nachrichtendatei:', error);
       return null;
     }
   }
 
   /**
-   * Bereitet die Medieninhalte für die API vor
-   * @param {string} filePath - Pfad zur Mediendatei
-   * @param {string} fileType - Typ der Datei
-   * @returns {Object} Die aufbereiteten Medieninhalte
+   * Bereitet den Medieninhalt für die Auslieferung vor
+   * @param {string} filePath - Der Dateipfad der Mediendatei
+   * @param {string} fileType - Der Typ der Mediendatei
+   * @returns {Object} Der aufbereitete Medieninhalt
    */
   static prepareMediaContent(filePath, fileType) {
+    // Prüfe auf spezielle Inhaltstypen
     if (fileType === 'text' && this.isCountdown(filePath)) {
-      return {
-        type: 'countdown',
-        data: null
-      };
+      return { type: 'countdown', data: null };
     }
 
     if (fileType === 'text' && this.isPoll(filePath)) {
-      return {
-        type: 'poll',
-        data: null
-      };
+      return { type: 'poll', data: null };
     }
 
     if (fileType === 'text' && this.isPuzzle(filePath)) {
@@ -146,10 +141,7 @@ class MediaService {
       data = fs.readFileSync(filePath, 'utf8').toString();
     }
 
-    return {
-      type: fileType,
-      data
-    };
+    return { type: fileType, data };
   }
 }
 
