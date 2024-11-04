@@ -142,8 +142,24 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
 
     // Delete old files if they exist
     if (medium[doorNumber]) {
+      // Check if it's a puzzle before deleting
       const oldFilePath = path.join(paths.mediaDir, medium[doorNumber]);
       if (fsSync.existsSync(oldFilePath)) {
+        const oldContent = await fs.readFile(oldFilePath, 'utf8');
+        const wasPuzzle = oldContent.trim() === '<[puzzle]>';
+        
+        if (wasPuzzle) {
+          // Delete the associated puzzle image
+          const oldImageIndex = doorNumber + timingService.loopAround;
+          if (medium[oldImageIndex]) {
+            const oldImagePath = path.join(paths.mediaDir, medium[oldImageIndex]);
+            if (fsSync.existsSync(oldImagePath)) {
+              await deleteFileWithRetry(oldImagePath);
+            }
+            delete medium[oldImageIndex];
+          }
+        }
+        
         await deleteFileWithRetry(oldFilePath);
       }
 
@@ -153,53 +169,61 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
       }
     }
 
-    // Handle different content types
-    if (type === 'text' || type === 'poll') {
-      const fileName = `${doorNumber}.txt`;
-      const filePath = path.join(paths.mediaDir, fileName);
-      
-      if (type === 'poll') {
-        let pollData;
-        try {
-          pollData = JSON.parse(content);
-          if (!pollData.question || !Array.isArray(pollData.options) || pollData.options.length === 0) {
-            throw new Error('Invalid poll data format');
+    try {
+      if (type === 'puzzle' && req.file) {
+        await MediaService.savePuzzleData(doorNumber, req.file);
+      } else if (type === 'text' || type === 'poll') {
+        const fileName = `${doorNumber}.txt`;
+        const filePath = path.join(paths.mediaDir, fileName);
+        
+        if (type === 'poll') {
+          let pollData;
+          try {
+            pollData = JSON.parse(content);
+            if (!pollData.question || !Array.isArray(pollData.options) || pollData.options.length === 0) {
+              throw new Error('Invalid poll data format');
+            }
+          } catch (error) {
+            return res.status(400).json({ error: 'Invalid poll data format' });
           }
-        } catch (error) {
-          return res.status(400).json({ error: 'Invalid poll data format' });
+
+          await MediaService.savePollData(doorNumber, pollData);
+          await fs.writeFile(filePath, '<[poll]>');
+        } else {
+          await fs.writeFile(filePath, content);
         }
-
-        await MediaService.savePollData(doorNumber, pollData);
-        await fs.writeFile(filePath, '<[poll]>');
-      } else {
-        await fs.writeFile(filePath, content);
+        
+        medium[doorNumber] = fileName;
+      } else if (type === 'countdown') {
+        const fileName = `${doorNumber}.txt`;
+        const filePath = path.join(paths.mediaDir, fileName);
+        await fs.writeFile(filePath, '<[countdown]>');
+        medium[doorNumber] = fileName;
+      } else if (req.file) {
+        medium[doorNumber] = req.file.filename;
       }
-      
-      medium[doorNumber] = fileName;
-    } else if (type === 'countdown') {
-      const fileName = `${doorNumber}.txt`;
-      const filePath = path.join(paths.mediaDir, fileName);
-      await fs.writeFile(filePath, '<[countdown]>');
-      medium[doorNumber] = fileName;
-    } else if (req.file) {
-      medium[doorNumber] = req.file.filename;
+
+      // Handle additional message
+      const messagePath = path.join(paths.messagesDir, `${doorNumber}.txt`);
+      if (message) {
+        await fs.writeFile(messagePath, message);
+      } else if (fsSync.existsSync(messagePath)) {
+        await deleteFileWithRetry(messagePath);
+      }
+
+      // Only save medium.json if we're not handling a puzzle (it's handled in savePuzzleData)
+      if (type !== 'puzzle') {
+        await safeWriteJson(mediumPath, medium);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Error during content upload:', error);
+      throw error;
     }
-
-    // Save medium.json
-    await safeWriteJson(mediumPath, medium);
-
-    // Handle additional message
-    const messagePath = path.join(paths.messagesDir, `${doorNumber}.txt`);
-    if (message) {
-      await fs.writeFile(messagePath, message);
-    } else if (fsSync.existsSync(messagePath)) {
-      await deleteFileWithRetry(messagePath);
-    }
-
-    res.json({ success: true });
   } catch (error) {
     logger.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ error: 'Upload failed: ' + error.message });
   }
 });
 
@@ -224,11 +248,21 @@ router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
     // 1. Handle media file
     const mediaPath = path.join(paths.mediaDir, filename);
     if (fsSync.existsSync(mediaPath)) {
-      // Check for poll content
+      // Check for puzzle content
       if (filename.endsWith('.txt')) {
         try {
           const content = await fs.readFile(mediaPath, 'utf8');
-          if (content.trim() === '<[poll]>') {
+          if (content.trim() === '<[puzzle]>') {
+            // Delete associated puzzle image
+            const imageIndex = MediaService.getPuzzleImageIndex(doorNumber);
+            if (medium[imageIndex]) {
+              const puzzleImagePath = path.join(paths.mediaDir, medium[imageIndex]);
+              if (fsSync.existsSync(puzzleImagePath)) {
+                deletionPromises.push(deleteFileWithRetry(puzzleImagePath));
+              }
+              delete medium[imageIndex];
+            }
+          } else if (content.trim() === '<[poll]>') {
             // Delete poll data
             const pollsDir = path.join(paths.rootDir, 'polls');
             const pollDataPath = path.join(pollsDir, 'pollData.json');
@@ -251,7 +285,7 @@ router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
             }
           }
         } catch (error) {
-          logger.error('Error checking poll content:', error);
+          logger.error('Error checking content type:', error);
         }
       }
       

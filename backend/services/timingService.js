@@ -9,7 +9,7 @@
 
 class TimingService {
     // Startdatum des Adventskalenders
-    static startDay = new Date("2024-10-28"); // In Produktion auf "2024-12-01" ändern
+    static startDay = new Date("2024-10-01"); // In Produktion auf "2024-12-01" ändern
     static loopAround = 1000; // Führe einen Looparound der Indizierung ein für das einfache Serven von mehreren Mediafiles pro Tag
     /**
      * Fügt einer Date-Instanz Tage hinzu

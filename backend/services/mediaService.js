@@ -1,9 +1,5 @@
 /**
  * @fileoverview /backend/services/mediaService.js
- * Medien-Service
- * 
- * Dieser Service ist für die Verwaltung und Verarbeitung von Mediendateien zuständig.
- * Er bietet Funktionen zum Abrufen, Überprüfen und Vorbereiten von Medieninhalten.
  */
 
 const fs = require('fs');
@@ -22,7 +18,6 @@ class MediaService {
    */
   static async getMediaFile(index) {
     try {
-      // Überprüfe ob der Index gültig ist und die Datei existiert
       if (isNaN(index) || medium[index] === undefined) {
         throw new Error('Datei nicht gefunden');
       }
@@ -38,6 +33,48 @@ class MediaService {
       throw error;
     }
   }
+
+  /**
+   * Speichert die Daten für ein Puzzle
+   * @param {number} doorNumber - Die Türnummer
+   * @param {Object} data - Die Puzzledaten
+   * @returns {Promise<void>}
+   */
+  /**
+   * Speichert die Daten für ein Puzzle
+   * @param {number} doorNumber - Die Türnummer
+   * @param {Object} puzzleFile - Die hochgeladene Bilddatei
+   * @returns {Promise<void>}
+   */
+  static async savePuzzleData(doorNumber, puzzleFile) {
+    try {
+      const mediumPath = path.join(paths.rootDir, 'medium.json');
+      const mediumContent = JSON.parse(await fs.promises.readFile(mediumPath, 'utf8'));
+
+      // 1. Speichere den Puzzle-Marker
+      const puzzleMarkerFile = `${doorNumber}.txt`;
+      const puzzleMarkerPath = path.join(paths.mediaDir, puzzleMarkerFile);
+      await fs.promises.writeFile(puzzleMarkerPath, '<[puzzle]>');
+      mediumContent[doorNumber] = puzzleMarkerFile;
+
+      // 2. Speichere das Puzzle-Bild
+      const imageIndex = this.getPuzzleImageIndex(doorNumber);
+      const imageExt = path.extname(puzzleFile.originalname);
+      const imageFilename = `${imageIndex}${imageExt}`;
+      const imagePath = path.join(paths.mediaDir, imageFilename);
+
+      // Verschiebe das hochgeladene Bild
+      await fs.promises.rename(puzzleFile.path, imagePath);
+      mediumContent[imageIndex] = imageFilename;
+
+      // Speichere die aktualisierte medium.json
+      await fs.promises.writeFile(mediumPath, JSON.stringify(mediumContent, null, 2));
+    } catch (error) {
+      logger.error('Fehler beim Speichern der Puzzle-Daten:', error);
+      throw error;
+    }
+  }
+
 
   /**
    * Prüft ob eine Datei eine Umfrage enthält
@@ -71,12 +108,12 @@ class MediaService {
     }
   }
 
- /**
-   * Prüft ob die Datei ein Puzzle ist.
+  /**
+   * Prüft ob die Datei ein Puzzle ist
    * @param {string} filePath - Pfad zur Datei
-   * @returns {boolean} True wenn es sich um einen Puzzle handelt
+   * @returns {boolean} True wenn es sich um ein Puzzle handelt
    */
-  static isPuzzle(filePath){
+  static isPuzzle(filePath) {
     try {
       if (!fs.existsSync(filePath)) return false;
       const content = fs.readFileSync(filePath, 'utf8').toString().trim();
@@ -87,14 +124,15 @@ class MediaService {
     }
   }
 
-/**
-   * Übersetzt den Puzzleindex in einen weiteren Medienindex für das Hintergrundbild
-   * @param {int} index - Index zu dem Puzzle
-   * @returns {int} Index zu dem verknüpften Medium (ein Bild)
+  /**
+   * Übersetzt den Puzzle-Index in einen weiteren Medienindex für das Hintergrundbild
+   * @param {number} index - Index zu dem Puzzle
+   * @returns {number} Index zu dem verknüpften Medium (ein Bild)
    */
-  static getPuzzleImageIndex(index){
-    return index + timingService.loopAround
+  static getPuzzleImageIndex(index) {
+    return index + timingService.loopAround;
   }
+
   /**
    * Holt eine zusätzliche Nachricht zu einer Mediendatei
    * @param {number} index - Der Index der Mediendatei
@@ -117,33 +155,41 @@ class MediaService {
    * Bereitet den Medieninhalt für die Auslieferung vor
    * @param {string} filePath - Der Dateipfad der Mediendatei
    * @param {string} fileType - Der Typ der Mediendatei
+   * @param {Object} doorStates - Der Status der Türen
+   * @param {number} doorNumber - Die Türchennummer
    * @returns {Object} Der aufbereitete Medieninhalt
    */
   static prepareMediaContent(filePath, fileType, doorStates = {}, doorNumber) {
-    // Prüfe auf spezielle Inhaltstypen
+    if (fileType === 'text' && this.isPuzzle(filePath)) {
+      const imageIndex = this.getPuzzleImageIndex(doorNumber);
+      const imageFilename = medium[imageIndex];
+      let imageUrl = null;
+      
+      if (imageFilename) {
+        imageUrl = `/media/${imageIndex}`;
+      }
+
+      return {
+        type: 'puzzle',
+        data: imageUrl,
+        isSolved: doorStates[doorNumber]?.win || false
+      };
+    }
+
+    // Andere Inhaltstypen wie bisher...
     if (fileType === 'text' && this.isCountdown(filePath)) {
       return { type: 'countdown', data: null };
     }
-  
+
     if (fileType === 'text' && this.isPoll(filePath)) {
       return { type: 'poll', data: null };
     }
-  
-    if (fileType === 'text' && this.isPuzzle(filePath)) {
-      // Check if puzzle is solved from doorStates
-      const isSolved = doorStates[doorNumber]?.win || false;
-      return {
-        type: 'puzzle',
-        data: null,
-        isSolved
-      };
-    }
-  
+
     let data = '';
     if (fileType === 'text') {
       data = fs.readFileSync(filePath, 'utf8').toString();
     }
-  
+
     return { type: fileType, data };
   }
 }

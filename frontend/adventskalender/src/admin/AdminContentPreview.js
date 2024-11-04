@@ -1,7 +1,19 @@
-import { BarChart2, Music, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart2, Music, Clock, Puzzle } from 'lucide-react';
 import AdminContentTypeIcon from './AdminContentTypeIcon';
 
 const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
+  const [puzzleImageUrl, setPuzzleImageUrl] = useState(null);
+
+  useEffect(() => {
+    if (content?.type === 'puzzle' && content.data) {
+      // Verwende die vollständige URL ohne HTTP-Protokoll, um sowohl HTTP als auch HTTPS zu unterstützen
+      setPuzzleImageUrl(content.data);
+    } else {
+      setPuzzleImageUrl(null);
+    }
+  }, [content]);
+
   if (!content) return null;
 
   const isTopRow = doorIndex < 12;
@@ -21,6 +33,37 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
     return cleanText.length > 80 ? cleanText.substring(0, 77) + '...' : cleanText;
   };
 
+  const renderPuzzlePreview = () => {
+    if (content.type !== 'puzzle') return null;
+  
+    return (
+      <div className="space-y-2">
+        <div className="flex items-start gap-2">
+          <Puzzle className="text-gray-500 mt-1" size={14} />
+          <div className="flex-1">
+            <p className="text-xs font-medium text-gray-700">Sliding Puzzle Game</p>
+            {puzzleImageUrl && (
+              <div className="mt-2">
+                <p className="text-xs font-medium text-gray-700 mb-1">Original Image:</p>
+                <div className="relative w-full h-32 border border-gray-200 rounded overflow-hidden">
+                  <img 
+                    src={content.data}
+                    alt={`Puzzle for door ${doorIndex}`} 
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      console.error('Failed to load puzzle image:', content.data);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`
       absolute 
@@ -34,6 +77,8 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
       </div>
 
       <div className="space-y-2">
+        {content.type === 'puzzle' && renderPuzzlePreview()}  
+
         {content.type === 'poll' && pollContent && (
           <div className="space-y-2">
             <div className="flex items-start gap-2">
@@ -91,14 +136,14 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
         {content.type === 'audio' && (
           <div className="text-xs text-gray-700 bg-gray-50 p-2 rounded flex items-center gap-2">
             <Music size={14} />
-            Audio file uploaded
+            <span>Audio file uploaded</span>
           </div>
         )}
 
         {content.type === 'countdown' && (
           <div className="text-xs text-gray-700 bg-gray-50 p-2 rounded flex items-center gap-2">
             <Clock size={14} />
-            Christmas countdown
+            <span>Christmas countdown display</span>
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import { Image, FileText, Film, Music, BarChart2, Clock } from 'lucide-react';
+import { Image, FileText, Film, Music, BarChart2, Clock, Puzzle } from 'lucide-react';
 
 const AdminContentTypeIcon = ({ type }) => {
   const iconProps = { size: 16, className: "text-gray-500" };
@@ -16,6 +16,8 @@ const AdminContentTypeIcon = ({ type }) => {
       return <BarChart2 {...iconProps} />;
     case 'countdown':
       return <Clock {...iconProps} />;
+    case 'puzzle':
+      return <Puzzle {...iconProps} />;
     default:
       return null;
   }

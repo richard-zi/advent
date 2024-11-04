@@ -69,6 +69,7 @@ const AdminContentForm = ({
             <option value="video">Video</option>
             <option value="audio">Audio</option>
             <option value="poll">Poll</option>
+            <option value="puzzle">Sliding Puzzle</option>
             <option value="countdown">Countdown</option>
           </select>
         </div>
@@ -84,6 +85,23 @@ const AdminContentForm = ({
               className="w-full p-2 border border-gray-300 rounded-md h-32"
               placeholder="Enter your content here..."
             />
+          </div>
+        )}
+
+        {uploadType === 'puzzle' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Puzzle Image
+            </label>
+            <input
+              type="file"
+              onChange={onFileChange}
+              className="w-full p-2 border border-gray-300 rounded-md"
+              accept="image/*"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              Upload the image that will be used for the sliding puzzle. The image will be automatically split into pieces.
+            </p>
           </div>
         )}
 
