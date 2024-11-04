@@ -1,6 +1,6 @@
 import React from 'react';
 import SmallCountdown from './SmallCountdown';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, Puzzle } from 'lucide-react';
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
@@ -27,6 +27,8 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
           </svg>
         );
+      case 'puzzle':
+        return <Puzzle className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} />;
       default:
         return null;
     }
@@ -71,10 +73,29 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
             {renderMediaIcon('audio')}
           </div>
         );
+      case 'puzzle':
+        // Show icon if puzzle is not solved, otherwise show completed image
+        if (!contentPreview.isSolved) {
+          return (
+            <div className="w-full h-full flex items-center justify-center">
+              {renderMediaIcon('puzzle')}
+            </div>
+          );
+        }
+        // If solved, show the complete image
+        return contentPreview.thumbnail ? (
+          <div className="w-full h-full relative">
+            <img
+              src={contentPreview.data}
+              alt={`Completed puzzle for door ${day}`}
+              className="w-full h-full object-cover absolute inset-0"
+            />
+            <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
+          </div>
+        ) : null;
       case 'video':
       case 'image':
       case 'gif':
-      case 'puzzle':
         return contentPreview.thumbnail ? (
           <div className="w-full h-full relative">
             <img

@@ -158,6 +158,9 @@ app.get('/api', async (req, res) => {
     // Lade aktuelle Daten aus medium.json
     const mediumContent = fs.readFileSync(mediumPath, 'utf8');
     const medium = JSON.parse(mediumContent);
+    
+    // Extrahiere doorStates aus dem Query-Parameter
+    const doorStates = req.query.doorStates ? JSON.parse(req.query.doorStates) : {};
 
     // Verarbeite alle Einträge
     const allDataEntries = await Promise.all(
@@ -182,9 +185,10 @@ app.get('/api', async (req, res) => {
         }
 
         // Bereite Medieninhalt vor
-        const mediaContent = MediaService.prepareMediaContent(filePath, fileType);
+        const mediaContent = MediaService.prepareMediaContent(filePath, fileType, doorStates, index);
         let data;
-        switch(mediaContent.type){
+        
+        switch(mediaContent.type) {
           case 'countdown':
           case 'poll': 
             data = null;
@@ -193,18 +197,19 @@ app.get('/api', async (req, res) => {
             data = mediaContent.data;
             break;
           case 'puzzle':
-            data =  `${req.protocol}://${req.get('host')}/media/${MediaService.getPuzzleImageIndex(index)}`;
-            const thumbnail = await ThumbnailService.generateThumbnail(path.join(filePath), "puzzle");
-            thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/${path.basename(thumbnail)}`;
+            const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
+            const puzzleImagePath = path.join(paths.mediaDir, medium[puzzleImageIndex]);
+            data = `${req.protocol}://${req.get('host')}/media/${puzzleImageIndex}`;
+            
+            // Wenn das Puzzle gelöst ist, verwende das vollständige Bild als Thumbnail
+            if (doorStates[index]?.win) {
+              thumbnailUrl = data;
+            }
             break;
           default:
             data = `${req.protocol}://${req.get('host')}/media/${index}`;
         }
-        /*
-        const data = mediaContent.type === 'countdown' || mediaContent.type === 'poll' ? null : 
-          (mediaContent.type === 'text' ? mediaContent.data : 
-          `${req.protocol}://${req.get('host')}/media/${index}`);
-        */
+
         // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
@@ -212,7 +217,8 @@ app.get('/api', async (req, res) => {
           data,
           type: mediaContent.type,
           text: message,
-          thumbnail: thumbnailUrl
+          thumbnail: thumbnailUrl,
+          isSolved: mediaContent.type === 'puzzle' ? doorStates[index]?.win || false : undefined
         }];
       })
     );

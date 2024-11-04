@@ -119,28 +119,31 @@ class MediaService {
    * @param {string} fileType - Der Typ der Mediendatei
    * @returns {Object} Der aufbereitete Medieninhalt
    */
-  static prepareMediaContent(filePath, fileType) {
+  static prepareMediaContent(filePath, fileType, doorStates = {}, doorNumber) {
     // Prüfe auf spezielle Inhaltstypen
     if (fileType === 'text' && this.isCountdown(filePath)) {
       return { type: 'countdown', data: null };
     }
-
+  
     if (fileType === 'text' && this.isPoll(filePath)) {
       return { type: 'poll', data: null };
     }
-
+  
     if (fileType === 'text' && this.isPuzzle(filePath)) {
+      // Check if puzzle is solved from doorStates
+      const isSolved = doorStates[doorNumber]?.win || false;
       return {
         type: 'puzzle',
-        data: null
+        data: null,
+        isSolved
       };
     }
-
+  
     let data = '';
     if (fileType === 'text') {
       data = fs.readFileSync(filePath, 'utf8').toString();
     }
-
+  
     return { type: fileType, data };
   }
 }

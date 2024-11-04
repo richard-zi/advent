@@ -30,7 +30,10 @@ const AdventCalendar = () => {
     return saved !== null ? JSON.parse(saved) : true;
   });
   const settingsRef = useRef(null);
-  const [doorStates, setDoorStates] = useState(Object.fromEntries([...Array(24).keys()].map((key) => [key, {}])));
+  const [doorStates, setDoorStates] = useState(() => {
+    const saved = localStorage.getItem('doorStates');
+    return saved ? JSON.parse(saved) : {};
+  });
   
   // Listen to system theme changes
   useEffect(() => {
@@ -45,6 +48,12 @@ const AdventCalendar = () => {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  // Save doorStates to localStorage and update calendar when they change
+  useEffect(() => {
+    localStorage.setItem('doorStates', JSON.stringify(doorStates));
+    fetchCalendarData();
+  }, [doorStates]);
 
   const doorOrder = [
     7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
@@ -88,8 +97,11 @@ const AdventCalendar = () => {
 
   const fetchCalendarData = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/');
-      console.log(response.data); 
+      const response = await axios.get('http://localhost:5000/api/', {
+        params: {
+          doorStates: JSON.stringify(doorStates)
+        }
+      });
       setCalendarData(response.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -124,6 +136,7 @@ const AdventCalendar = () => {
   const toggleSnowfall = () => {
     setSnowfall(prev => !prev);
   };
+
   return (
     <div className={`min-h-screen bg-gradient-to-br ${
       darkMode ? 'from-gray-800 to-gray-900' : 'from-gray-50 to-gray-100'
@@ -174,6 +187,7 @@ const AdventCalendar = () => {
                 onOpen={handleDoorOpen}
                 contentPreview={calendarData[day]}
                 darkMode={darkMode}
+                doorStates={doorStates}
               />
             ))}
           </div>
