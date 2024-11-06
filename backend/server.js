@@ -169,7 +169,7 @@ app.get('/api', async (req, res) => {
         
         // Prüfe zeitliche Verfügbarkeit
         if (!TimingService.dateCheck(index)) {
-          return [key, { type: "noch nicht verfügbar" }];
+          return [key, { type: "not available yet" }];
         }
 
         const filePath = path.join(paths.mediaDir, value);
@@ -201,7 +201,6 @@ app.get('/api', async (req, res) => {
             const puzzleImagePath = path.join(paths.mediaDir, medium[puzzleImageIndex]);
             data = `${req.protocol}://${req.get('host')}/media/${puzzleImageIndex}`;
             
-            // Wenn das Puzzle gelöst ist, verwende das vollständige Bild als Thumbnail
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
             }
@@ -214,10 +213,10 @@ app.get('/api', async (req, res) => {
         const message = await MediaService.getMediaMessage(index);
 
         return [key, {
-          data,
-          type: mediaContent.type,
-          text: message,
-          thumbnail: thumbnailUrl,
+          data: TimingService.dateCheck(index) ? data : null,
+          type: TimingService.dateCheck(index) ? mediaContent.type : "not available yet",
+          text: TimingService.dateCheck(index) ? message : null,
+          thumbnail: TimingService.dateCheck(index) ? thumbnailUrl : null,
           isSolved: mediaContent.type === 'puzzle' ? doorStates[index]?.win || false : undefined
         }];
       })

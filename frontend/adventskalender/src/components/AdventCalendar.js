@@ -109,16 +109,21 @@ const AdventCalendar = () => {
   };
 
   const handleDoorOpen = (day) => {
+    // Prüfe zuerst ob calendarData für diesen Tag existiert
     if (!calendarData[day]) {
       setAlertConfig({ show: true, type: 'error' });
-    } else if (calendarData[day].type === "not available yet") {
-      setAlertConfig({ show: true, type: 'notAvailable' });
-    } else if (calendarData[day].type === "error") {
-      setAlertConfig({ show: true, type: 'error' });
-    } else {
-      setOpenDoors(prev => ({ ...prev, [day]: true }));
-      setSelectedContent({ day, ...calendarData[day] });
+      return;
     }
+
+    // Prüfe den type des contents
+    if (calendarData[day].type === "not available yet") {
+      setAlertConfig({ show: true, type: 'notAvailable' });
+      return;
+    }
+
+    // Wenn der Content verfügbar ist, öffne das Türchen
+    setOpenDoors(prev => ({ ...prev, [day]: true }));
+    setSelectedContent({ day, ...calendarData[day] });
   };
   
   const handleClosePopup = () => {
