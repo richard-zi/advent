@@ -21,7 +21,9 @@ const Poll = ({ doorNumber, darkMode }) => {
   const fetchPollData = useCallback(async () => {
     try {
       const userId = getUserId();
-      const response = await axios.get(`http://localhost:5000/api/poll/${doorNumber}?userId=${userId}`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/poll/${doorNumber}?userId=${userId}`
+      );
       setPollData(response.data.pollData);
       setVotes(response.data.votes);
       setUserVote(response.data.userVote);
@@ -39,10 +41,13 @@ const Poll = ({ doorNumber, darkMode }) => {
   const handleVote = async (option) => {
     try {
       const userId = getUserId();
-      const response = await axios.post(`http://localhost:5000/api/poll/${doorNumber}/vote`, {
-        option,
-        userId
-      });
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/poll/${doorNumber}/vote`,
+        {
+          option,
+          userId
+        }
+      );
 
       if (response.data.success) {
         setVotes(response.data.results);
@@ -115,7 +120,6 @@ const Poll = ({ doorNumber, darkMode }) => {
                 ${!hasVoted && 'hover:border-blue-500'}
                 overflow-hidden
               `}>
-                {/* Progress Bar Background */}
                 <div className={`
                   absolute inset-0 transition-all duration-500
                   ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}

@@ -1,10 +1,6 @@
 /**
  * @fileoverview /backend/services/thumbnailService.js
- * Thumbnail-Service
- * 
- * Dieser Service ist für die Erstellung und Verwaltung von Vorschaubildern zuständig.
- * Er unterstützt die Generierung von Thumbnails für verschiedene Medientypen wie
- * Bilder, Videos und GIFs.
+ * Thumbnail-Service (Fortsetzung)
  */
 
 const fs = require('fs');
@@ -13,19 +9,14 @@ const sharp = require('sharp');
 const { ffmpeg } = require('../config/ffmpeg');
 const logger = require('../utils/logger');
 const paths = require('../config/paths');
+require('dotenv').config();
 
 class ThumbnailService {
-  // Cache für bereits generierte Thumbnails zur Verbesserung der Performance
   static thumbnailCache = new Map();
+  static targetWidth = parseInt(process.env.THUMBNAIL_WIDTH) || 500;
+  static quality = parseInt(process.env.THUMBNAIL_QUALITY) || 85;
 
-  /**
-   * Generiert ein Thumbnail für eine Mediendatei
-   * @param {string} filePath - Pfad zur Originaldatei
-   * @param {string} type - Medientyp (video, image, gif)
-   * @returns {Promise<string|null>} Pfad zum generierten Thumbnail oder null bei Fehler
-   */
   static async generateThumbnail(filePath, type) {
-    // Überspringe nicht unterstützte Dateitypen
     if (!['video', 'image', 'gif', 'puzzle'].includes(type)) {
       logger.info('Skipping thumbnail generation for type:', type);
       return null;
@@ -35,7 +26,6 @@ class ThumbnailService {
       const filename = path.basename(filePath);
       const thumbnailPath = path.join(paths.thumbnailsDir, `thumb_${filename.split('.')[0]}.jpg`);
 
-      // Prüfe ob bereits ein gültiges Thumbnail existiert
       if (await this.checkExistingThumbnail(thumbnailPath)) {
         return thumbnailPath;
       }
@@ -43,8 +33,9 @@ class ThumbnailService {
       logger.info('Generiere neues Thumbnail für:', filename);
 
       if(type === 'puzzle'){
-        return fs.copyFileSync(path.join(paths.assetDir, "puzzle.jpg"), path.join(paths.thumbnailsDir,  `thumb_${filename.split('.')[0]}.jpg`))
+        return fs.copyFileSync(path.join(paths.assetDir, "puzzle.jpg"), thumbnailPath);
       }
+      
       if (type === 'video' || type === 'gif') {
         return this.generateMediaThumbnail(filePath, thumbnailPath);
       } else if (type === 'image') {
@@ -56,13 +47,6 @@ class ThumbnailService {
     }
   }
 
-  /**
-   * Generiert ein Thumbnail für Video- oder GIF-Dateien
-   * @private
-   * @param {string} filePath - Pfad zur Originaldatei
-   * @param {string} thumbnailPath - Zielpfad für das Thumbnail
-   * @returns {Promise<string>} Pfad zum generierten Thumbnail
-   */
   static async generateMediaThumbnail(filePath, thumbnailPath) {
     return new Promise((resolve, reject) => {
       const tempPath = thumbnailPath.replace('.jpg', '_temp.jpg');
@@ -85,47 +69,30 @@ class ThumbnailService {
     });
   }
 
-  /**
-   * Generiert ein Thumbnail für Bilddateien
-   * @private
-   * @param {string} filePath - Pfad zur Originaldatei
-   * @param {string} thumbnailPath - Zielpfad für das Thumbnail
-   * @returns {Promise<string>} Pfad zum generierten Thumbnail
-   */
   static async generateImageThumbnail(filePath, thumbnailPath) {
     const metadata = await sharp(filePath).metadata();
-    const targetWidth = 500;
-    const targetHeight = Math.round(targetWidth * (metadata.height / metadata.width));
+    const targetHeight = Math.round(this.targetWidth * (metadata.height / metadata.width));
 
     await sharp(filePath)
-      .resize(targetWidth, targetHeight, { fit: 'fill' })
-      .jpeg({ quality: 85 })
+      .resize(this.targetWidth, targetHeight, { fit: 'fill' })
+      .jpeg({ quality: this.quality })
       .toFile(thumbnailPath);
 
     return thumbnailPath;
   }
 
-  /**
-   * Verarbeitet temporäre Dateien zu finalen Thumbnails
-   * @private
-   * @param {string} tempPath - Pfad zur temporären Datei
-   * @param {string} finalPath - Zielpfad für das finale Thumbnail
-   */
   static async processTemporaryFile(tempPath, finalPath) {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       const metadata = await sharp(tempPath).metadata();
-      const targetWidth = 500;
-      const targetHeight = Math.round(targetWidth * (metadata.height / metadata.width));
+      const targetHeight = Math.round(this.targetWidth * (metadata.height / metadata.width));
 
-      // Generiere das finale Thumbnail
       await sharp(tempPath)
-        .resize(targetWidth, targetHeight, { fit: 'fill' })
-        .jpeg({ quality: 85 })
+        .resize(this.targetWidth, targetHeight, { fit: 'fill' })
+        .jpeg({ quality: this.quality })
         .toFile(finalPath);
 
-      // Versuche die temporäre Datei zu löschen
       try {
         if (fs.existsSync(tempPath)) {
           fs.unlinkSync(tempPath);
@@ -139,12 +106,6 @@ class ThumbnailService {
     }
   }
 
-  /**
-   * Prüft ob ein gültiges Thumbnail bereits existiert
-   * @private
-   * @param {string} thumbnailPath - Pfad zum zu prüfenden Thumbnail
-   * @returns {Promise<boolean>} True wenn ein gültiges Thumbnail existiert
-   */
   static async checkExistingThumbnail(thumbnailPath) {
     try {
       if (fs.existsSync(thumbnailPath)) {
@@ -160,9 +121,6 @@ class ThumbnailService {
     }
   }
 
-  /**
-   * Leert den Thumbnail-Cache
-   */
   static clearCache() {
     this.thumbnailCache.clear();
     logger.info('Thumbnail-Cache geleert');

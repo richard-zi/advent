@@ -9,6 +9,8 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config();
+
 const corsMiddleware = require('./middleware/cors');
 const errorHandler = require('./middleware/errorHandler');
 const timingMiddleware = require('./middleware/timingMiddleware')
@@ -22,7 +24,7 @@ const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
 
-// Initialisiere Express-App und setze den Port
+// Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -32,9 +34,8 @@ if (!fs.existsSync(mediumPath)) {
   fs.writeFileSync(mediumPath, JSON.stringify({}), 'utf8');
 }
 
-// Initialisiere Admin-Anmeldedaten
-// WICHTIG: In der Produktion sollten diese Werte sicher konfiguriert werden
-AuthService.initializeAdmin('admin', 'changeme123').catch(error => {
+// Initialisiere Admin-Anmeldedaten aus Umgebungsvariablen
+AuthService.initializeAdmin().catch(error => {
   logger.error('Fehler bei der Initialisierung der Admin-Anmeldedaten:', error);
   process.exit(1);
 });

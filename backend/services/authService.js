@@ -11,9 +11,10 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
+require('dotenv').config();
 
-// Konfigurationskonstanten
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+// Konfigurationskonstanten aus Umgebungsvariablen
+const JWT_SECRET = process.env.JWT_SECRET;
 const CREDENTIALS_FILE = path.join(__dirname, '../config/admin-credentials.json');
 
 class AuthService {
@@ -25,15 +26,12 @@ class AuthService {
    */
   static async validateCredentials(username, password) {
     try {
-      // Lese gespeicherte Anmeldedaten aus der Datei
       const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, 'utf8'));
       
-      // Prüfe ob der Benutzername übereinstimmt
       if (credentials.username !== username) {
         return false;
       }
 
-      // Vergleiche das gehashte Passwort
       return await bcrypt.compare(password, credentials.password);
     } catch (error) {
       logger.error('Fehler bei der Validierung der Anmeldedaten:', error);
@@ -52,16 +50,13 @@ class AuthService {
 
   /**
    * Initialisiert die Admin-Anmeldedaten bei der ersten Ausführung
-   * @param {string} username - Der initiale Admin-Benutzername
-   * @param {string} password - Das initiale Admin-Passwort
    */
-  static async initializeAdmin(username, password) {
+  static async initializeAdmin() {
     try {
-      // Erstelle Anmeldedaten nur, wenn sie noch nicht existieren
       if (!fs.existsSync(CREDENTIALS_FILE)) {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
         const credentials = {
-          username,
+          username: process.env.ADMIN_USERNAME,
           password: hashedPassword
         };
 

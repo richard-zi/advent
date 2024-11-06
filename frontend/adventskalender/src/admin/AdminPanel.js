@@ -27,7 +27,7 @@ const AdminPanel = () => {
 
   const fetchDoors = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/admin/api/doors', {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/admin/api/doors`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -41,7 +41,7 @@ const AdminPanel = () => {
 
   const fetchAllContents = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api', {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -54,7 +54,7 @@ const AdminPanel = () => {
 
   const fetchPollData = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/admin/api/polls', {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/admin/api/polls`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -87,7 +87,7 @@ const AdminPanel = () => {
     if (!selectedDoor) return;
 
     try {
-      await axios.delete(`http://localhost:5000/admin/api/content/${selectedDoor}`, {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/admin/api/content/${selectedDoor}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -112,7 +112,7 @@ const AdminPanel = () => {
       });
       
       setError('Content deleted successfully!');
-      await fetchPollData(); // Refresh poll data after deletion
+      await fetchPollData();
     } catch (error) {
       setError(error.response?.data?.error || 'Delete failed');
     }
@@ -147,7 +147,7 @@ const AdminPanel = () => {
     }
 
     try {
-      await axios.post(`http://localhost:5000/admin/api/upload/${selectedDoor}`, formData, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/admin/api/upload/${selectedDoor}`, formData, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
           'Content-Type': 'multipart/form-data'

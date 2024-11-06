@@ -1,10 +1,12 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;  // Promises version of fs
-const fsSync = require('fs');       // Synchronous version of fs
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const util = require('util');
 const sleep = util.promisify(setTimeout);
+require('dotenv').config();
+
 const AuthService = require('../services/authService');
 const MediaService = require('../services/mediaService');
 const logger = require('../utils/logger');
@@ -13,7 +15,7 @@ const paths = require('../config/paths');
 
 const router = express.Router();
 
-// Configure multer for file uploads
+// Configure multer for file uploads with size limit from environment variables
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, paths.mediaDir);
@@ -27,7 +29,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 52428800, // 50MB default
   }
 });
 

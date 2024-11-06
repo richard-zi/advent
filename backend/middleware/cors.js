@@ -8,20 +8,14 @@
  */
 
 const cors = require('cors');
+require('dotenv').config();
 
-// Erstelle eine CORS-Middleware mit Standardkonfiguration
-// WICHTIG: In der Produktionsumgebung sollten die CORS-Einstellungen
-// restriktiver sein und nur spezifische Domains zulassen
-const corsMiddleware = cors();
-
-// Alternativ könnte man auch eine spezifischere Konfiguration verwenden:
-/*
+// Erstelle eine CORS-Middleware mit Konfiguration aus Umgebungsvariablen
 const corsMiddleware = cors({
-  origin: ['http://localhost:3000', 'https://ihre-produktions-domain.de'],
+  origin: process.env.ALLOWED_ORIGINS.split(','),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 });
-*/
 
 module.exports = corsMiddleware;

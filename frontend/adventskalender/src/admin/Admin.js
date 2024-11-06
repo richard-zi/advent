@@ -21,7 +21,7 @@ const Admin = () => {
     }
 
     try {
-      await axios.get('http://localhost:5000/admin/verify', {
+      await axios.get(`${process.env.REACT_APP_API_URL}/admin/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

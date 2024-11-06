@@ -8,10 +8,10 @@
 
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+require('dotenv').config();
 
-// Geheimschlüssel für JWT-Signierung und Verifizierung
-// WICHTIG: In Produktionsumgebungen sollte dieser Wert sicher in Umgebungsvariablen gespeichert werden
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+// Geheimschlüssel für JWT-Signierung und Verifizierung aus Umgebungsvariablen
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * Express Middleware für die Token-basierte Authentifizierung

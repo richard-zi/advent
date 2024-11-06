@@ -24,16 +24,21 @@ function coordsToIndex(coords) {
 
 function shuffle(grid) {
   const randomMoves = 10;
+  const newGrid = [...grid];
   let lastMove = -1;
+  
   for(let i = 0; i < randomMoves; i++) {
-    const empty = grid.indexOf(gridSize * gridSize - 1);
-    const moves = getValidMoves(grid).filter(m => m !== lastMove);
+    const empty = newGrid.indexOf(gridSize * gridSize - 1);
+    // eslint-disable-next-line no-loop-func
+    const moves = getValidMoves(newGrid).filter(m => m !== lastMove);
     const chosenMove = moves[Math.floor(Math.random() * moves.length)];
-    grid[empty] = grid[chosenMove];
-    grid[chosenMove] = gridSize * gridSize - 1;
-    lastMove = empty;
+    const tempLast = empty;
+    newGrid[empty] = newGrid[chosenMove];
+    newGrid[chosenMove] = gridSize * gridSize - 1;
+    lastMove = tempLast;
   }
-  return grid;
+  
+  return newGrid;
 }
 
 function createInitialGrid() {
@@ -143,12 +148,11 @@ function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
     }
   }
 
-  // Effekt für das Ausblenden des Konfettis
   useEffect(() => {
     if (showConfetti) {
       const timer = setTimeout(() => {
         setShowConfetti(false);
-      }, 5000); // Konfetti wird nach 5 Sekunden ausgeblendet
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [showConfetti]);

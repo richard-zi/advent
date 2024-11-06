@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings } from 'lucide-react';
 import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
 import SettingsModal from './SettingsModal';
 import Snowfall from './Snowfall';
 import AlertMessage from './AlertMessage';
-import axios from 'axios'; 
+import axios from 'axios';
 
 const AdventCalendar = () => {
-  // localStorage.clear() // Für Debuggingzwecke
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
@@ -22,7 +21,6 @@ const AdventCalendar = () => {
     if (saved !== null) {
       return JSON.parse(saved);
     }
-    // Check system preference
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [snowfall, setSnowfall] = useState(() => {
@@ -34,8 +32,20 @@ const AdventCalendar = () => {
     const saved = localStorage.getItem('doorStates');
     return saved ? JSON.parse(saved) : {};
   });
-  
-  // Listen to system theme changes
+
+  const fetchCalendarData = useCallback(async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
+        params: {
+          doorStates: JSON.stringify(doorStates)
+        }
+      });
+      setCalendarData(response.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  }, [doorStates]);
+
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
@@ -49,11 +59,10 @@ const AdventCalendar = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Save doorStates to localStorage and update calendar when they change
   useEffect(() => {
     localStorage.setItem('doorStates', JSON.stringify(doorStates));
     fetchCalendarData();
-  }, [doorStates]);
+  }, [doorStates, fetchCalendarData]);
 
   const doorOrder = [
     7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
@@ -63,7 +72,7 @@ const AdventCalendar = () => {
 
   useEffect(() => {
     fetchCalendarData();
-  }, []);
+  }, [fetchCalendarData]);
 
   useEffect(() => {
     localStorage.setItem('openDoors', JSON.stringify(openDoors));
@@ -95,33 +104,17 @@ const AdventCalendar = () => {
     };
   }, [settingsRef]);
 
-  const fetchCalendarData = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/', {
-        params: {
-          doorStates: JSON.stringify(doorStates)
-        }
-      });
-      setCalendarData(response.data);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
-
   const handleDoorOpen = (day) => {
-    // Prüfe zuerst ob calendarData für diesen Tag existiert
     if (!calendarData[day]) {
       setAlertConfig({ show: true, type: 'error' });
       return;
     }
 
-    // Prüfe den type des contents
     if (calendarData[day].type === "not available yet") {
       setAlertConfig({ show: true, type: 'notAvailable' });
       return;
     }
 
-    // Wenn der Content verfügbar ist, öffne das Türchen
     setOpenDoors(prev => ({ ...prev, [day]: true }));
     setSelectedContent({ day, ...calendarData[day] });
   };
