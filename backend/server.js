@@ -7,6 +7,7 @@
  */
 
 const express = require('express');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -24,10 +25,7 @@ const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
 const webhookRoutes = require('./routes/webhookRoutes');
-const express = require('express');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+
 
 // Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
