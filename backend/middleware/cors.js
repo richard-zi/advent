@@ -1,32 +1,21 @@
 /**
  * @fileoverview /backend/middleware/cors.js
- * CORS-Konfiguration für Reverse-Proxy Setup
+ * CORS (Cross-Origin Resource Sharing) Middleware-Konfiguration
+ * 
+ * Diese Datei konfiguriert die CORS-Einstellungen für die API.
+ * CORS ist notwendig, um Anfragen von anderen Domains zu erlauben,
+ * was besonders wichtig für die Frontend-Backend-Kommunikation ist.
  */
 
 const cors = require('cors');
 require('dotenv').config();
 
+// Erstelle eine CORS-Middleware mit Konfiguration aus Umgebungsvariablen
 const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
-    
-    // Erlaube Anfragen ohne Origin (z.B. vom Proxy)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Blocked origin:', origin);
-      callback(null, true);  // Im Proxy-Setup erlauben wir zunächst alle Origins
-    }
-  },
+  origin: process.env.ALLOWED_ORIGINS.split(','),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Forwarded-Proto'],
-  credentials: true,
-  // Trust the X-Forwarded-Proto header from our reverse proxy
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Forwarded-Proto', 'X-Forwarded-Host'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 });
 
 module.exports = corsMiddleware;
