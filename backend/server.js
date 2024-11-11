@@ -1,3 +1,11 @@
+/**
+ * @fileoverview /backend/server.js
+ * Hauptserver-Datei
+ * 
+ * Dies ist die zentrale Serverdatei der Anwendung.
+ * Sie initialisiert den Express-Server, lädt alle Middleware und definiert die Routen.
+ */
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -15,84 +23,86 @@ const AuthService = require('./services/authService');
 const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
+const webhookRoutes = require('./routes/webhookRoutes');
 
-// Initialize Express app and set port from environment variables
+
+// Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Trust proxy settings for working behind reverse proxy
-app.enable('trust proxy');
-
-// Helper function to get the full URL considering the X-Forwarded headers
-const getFullUrl = (req) => {
-  // Get protocol from X-Forwarded-Proto header or default to the request protocol
-  const protocol = req.get('X-Forwarded-Proto') || req.protocol;
-  // Get host from X-Forwarded-Host header or default to the request host
-  const host = req.get('X-Forwarded-Host') || req.get('host');
-  return `${protocol}://${host}`;
-};
-
-// Ensure medium.json exists
+// Stelle sicher, dass medium.json existiert
 const mediumPath = path.join(__dirname, 'medium.json');
 if (!fs.existsSync(mediumPath)) {
   fs.writeFileSync(mediumPath, JSON.stringify({}), 'utf8');
 }
 
-// Initialize admin credentials from environment variables
+// Initialisiere Admin-Anmeldedaten aus Umgebungsvariablen
 AuthService.initializeAdmin().catch(error => {
-  logger.error('Error initializing admin credentials:', error);
+  logger.error('Fehler bei der Initialisierung der Admin-Anmeldedaten:', error);
   process.exit(1);
 });
 
-// Middleware configuration
+
+app.use('/webhook', webhookRoutes);
+
+// Middleware-Konfiguration
 app.use(corsMiddleware);
 app.use(express.json());
 app.use('/thumbnails', timingMiddleware, express.static(paths.thumbnailsDir));
 app.use('/media', timingMiddleware, express.static(paths.mediaDir));
 
-// Initialize required directories and systems
+// Initialisiere benötigte Verzeichnisse und Systeme
 FileUtils.ensureDirectoryExists(paths.mediaDir);
 FileUtils.ensureDirectoryExists(paths.thumbnailsDir);
 FileUtils.ensureDirectoryExists(paths.messagesDir);
 FileUtils.cleanupTempFiles();
 PollService.initializePolls();
 
-// Register admin routes
+// Registriere Admin-Routen
 app.use('/admin', adminRoutes);
 
-// Base route for server check
+/**
+ * Basis-Route zur Serverüberprüfung
+ */
 app.get('/', (req, res) => {
-  res.send('Server is running!');
+  res.send('Server läuft!');
 });
 
-// Route for fetching media files
+/**
+ * Route zum Abrufen von Mediendateien
+ * Prüft die zeitliche Verfügbarkeit und sendet die angeforderte Datei
+ */
 app.get('/media/:index', async (req, res) => {
   try {
     const index = parseInt(req.path.split("/").pop());
     
+    // Prüfe ob das Türchen schon geöffnet werden darf
     if (!TimingService.dateCheck(index)) {
-      return res.status(423).send("File is not available yet");
+      return res.status(423).send("Datei ist noch nicht verfügbar");
     }
 
     const filePath = await MediaService.getMediaFile(index);
     res.sendFile(filePath);
   } catch (error) {
-    res.status(404).send('File not found.');
+    res.status(404).send('Datei nicht gefunden.');
   }
 });
 
-// Route for fetching poll data
+/**
+ * Route zum Abrufen von Umfragedaten
+ * Liefert Umfrageinformationen und Abstimmungsergebnisse
+ */
 app.get('/api/poll/:doorNumber', async (req, res) => {
   try {
     const doorNumber = parseInt(req.params.doorNumber);
     
     if (!TimingService.dateCheck(doorNumber)) {
-      return res.status(423).json({ error: 'Poll is not available yet' });
+      return res.status(423).json({ error: 'Umfrage ist noch nicht verfügbar' });
     }
 
     const pollData = await PollService.getPollData(doorNumber);
     if (!pollData) {
-      return res.status(404).json({ error: 'Poll not found' });
+      return res.status(404).json({ error: 'Umfrage nicht gefunden' });
     }
 
     const votes = await PollService.getVotes(doorNumber);
@@ -104,54 +114,66 @@ app.get('/api/poll/:doorNumber', async (req, res) => {
       userVote
     });
   } catch (error) {
-    logger.error('Error fetching poll data:', error);
-    res.status(500).json({ error: 'Error fetching poll data' });
+    logger.error('Fehler beim Abrufen der Umfragedaten:', error);
+    res.status(500).json({ error: 'Fehler beim Abrufen der Umfragedaten' });
   }
 });
 
-// Route for voting in polls
+/**
+ * Route zum Abstimmen bei Umfragen
+ * Verarbeitet Benutzerabstimmungen und aktualisiert die Ergebnisse
+ */
 app.post('/api/poll/:doorNumber/vote', async (req, res) => {
   try {
     const doorNumber = parseInt(req.params.doorNumber);
     const { option, userId } = req.body;
 
+    // Validiere Eingabedaten
     if (!option || !userId) {
-      return res.status(400).json({ error: 'Option or userId missing' });
+      return res.status(400).json({ error: 'Option oder userId fehlt' });
     }
 
     if (!TimingService.dateCheck(doorNumber)) {
-      return res.status(423).json({ error: 'Poll is not available yet' });
+      return res.status(423).json({ error: 'Umfrage ist noch nicht verfügbar' });
     }
 
     const pollData = await PollService.getPollData(doorNumber);
     if (!pollData) {
-      return res.status(404).json({ error: 'Poll not found' });
+      return res.status(404).json({ error: 'Umfrage nicht gefunden' });
     }
 
     if (!pollData.options.includes(option)) {
-      return res.status(400).json({ error: 'Invalid option' });
+      return res.status(400).json({ error: 'Ungültige Option' });
     }
 
     const result = await PollService.vote(doorNumber, option, userId);
     res.json(result);
   } catch (error) {
-    logger.error('Error processing vote:', error);
-    res.status(500).json({ error: 'Error processing vote' });
+    logger.error('Fehler beim Erfassen der Abstimmung:', error);
+    res.status(500).json({ error: 'Fehler beim Erfassen der Abstimmung' });
   }
 });
 
-// Main API route
+
+/**
+ * Hauptroute der API
+ * Liefert alle verfügbaren Inhalte mit Metadaten
+ */
 app.get('/api', async (req, res) => {
   try {
+    // Lade aktuelle Daten aus medium.json
     const mediumContent = fs.readFileSync(mediumPath, 'utf8');
     const medium = JSON.parse(mediumContent);
+    
+    // Extrahiere doorStates aus dem Query-Parameter
     const doorStates = req.query.doorStates ? JSON.parse(req.query.doorStates) : {};
-    const baseUrl = getFullUrl(req);
 
+    // Verarbeite alle Einträge
     const allDataEntries = await Promise.all(
       Object.entries(medium).map(async ([key, value]) => {
         const index = parseInt(key);
         
+        // Prüfe zeitliche Verfügbarkeit
         if (!TimingService.dateCheck(index)) {
           return [key, { type: "not available yet" }];
         }
@@ -160,13 +182,15 @@ app.get('/api', async (req, res) => {
         const fileType = FileUtils.getFileType(value);
         let thumbnailUrl = null;
         
+        // Generiere Thumbnails für visuelle Medien
         if (['video', 'image', 'gif'].includes(fileType)) {
           const thumbnail = await ThumbnailService.generateThumbnail(filePath, fileType);
           if (thumbnail) {
-            thumbnailUrl = `${baseUrl}/thumbnails/${path.basename(thumbnail)}`;
+            thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/${path.basename(thumbnail)}`;
           }
         }
 
+        // Bereite Medieninhalt vor
         const mediaContent = MediaService.prepareMediaContent(filePath, fileType, doorStates, index);
         let data;
         
@@ -181,16 +205,17 @@ app.get('/api', async (req, res) => {
           case 'puzzle':
             const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
             const puzzleImagePath = path.join(paths.mediaDir, medium[puzzleImageIndex]);
-            data = `${baseUrl}/media/${puzzleImageIndex}`;
+            data = `${req.protocol}://${req.get('host')}/media/${puzzleImageIndex}`;
             
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
             }
             break;
           default:
-            data = `${baseUrl}/media/${index}`;
+            data = `${req.protocol}://${req.get('host')}/media/${index}`;
         }
 
+        // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
         return [key, {
@@ -205,24 +230,24 @@ app.get('/api', async (req, res) => {
 
     return res.status(200).json(Object.fromEntries(allDataEntries));
   } catch (error) {
-    logger.error('Error processing API request:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    logger.error('Fehler bei der Verarbeitung der API-Anfrage:', error);
+    return res.status(500).json({ error: 'Interner Serverfehler' });
   }
 });
 
-// Register error handler
+// Registriere Error-Handler
 app.use(errorHandler);
 
-// Handle process termination
+// Behandle Prozessbeendigung
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM Signal received. Shutting down server...');
+  logger.info('SIGTERM Signal empfangen. Server wird beendet...');
   app.close(() => {
-    logger.info('Server shut down.');
+    logger.info('Server beendet.');
     process.exit(0);
   });
 });
 
-// Start the server
+// Starte den Server
 app.listen(port, () => {
-  logger.info(`Server running on port ${port}`);
+  logger.info(`Server läuft auf http://localhost:${port}`);
 });
