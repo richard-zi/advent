@@ -38,21 +38,11 @@ const AdventCalendar = () => {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
         params: {
           doorStates: JSON.stringify(doorStates)
-        },
-        timeout: 10000, // 10 second timeout
-        withCredentials: true // Enable credentials
+        }
       });
       setCalendarData(response.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      // More user-friendly error handling
-      if (error.code === 'ERR_NETWORK') {
-        setError('Unable to connect to server. Please check your connection.');
-      } else if (error.response?.status === 404) {
-        setError('Calendar data not found.');
-      } else {
-        setError('An error occurred while loading the calendar.');
-      }
     }
   }, [doorStates]);
 

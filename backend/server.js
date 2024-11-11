@@ -7,7 +7,6 @@
  */
 
 const express = require('express');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -43,7 +42,7 @@ AuthService.initializeAdmin().catch(error => {
   process.exit(1);
 });
 
-// Webhook
+
 app.use('/webhook', webhookRoutes);
 
 // Middleware-Konfiguration
@@ -68,15 +67,6 @@ app.use('/admin', adminRoutes);
 app.get('/', (req, res) => {
   res.send('Server läuft!');
 });
-
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  next();
-});
-
 
 /**
  * Route zum Abrufen von Mediendateien
