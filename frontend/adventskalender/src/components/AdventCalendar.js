@@ -33,9 +33,23 @@ const AdventCalendar = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
+  // Configure axios defaults
+  useEffect(() => {
+    // Set base URL for all axios requests
+    axios.defaults.baseURL = process.env.REACT_APP_API_URL;
+    // Add error handling interceptor
+    axios.interceptors.response.use(
+      response => response,
+      error => {
+        console.error('API Error:', error.response?.data || error.message);
+        return Promise.reject(error);
+      }
+    );
+  }, []);
+
   const fetchCalendarData = useCallback(async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
+      const response = await axios.get('/api/content', {
         params: {
           doorStates: JSON.stringify(doorStates)
         }
@@ -47,28 +61,9 @@ const AdventCalendar = () => {
   }, [doorStates]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e) => {
-      const userPreference = localStorage.getItem('darkMode');
-      if (userPreference === null) {
-        setDarkMode(e.matches);
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem('doorStates', JSON.stringify(doorStates));
     fetchCalendarData();
   }, [doorStates, fetchCalendarData]);
-
-  const doorOrder = [
-    7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
-    9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
-    19, 8, 21, 14
-  ];
 
   useEffect(() => {
     fetchCalendarData();
@@ -104,7 +99,7 @@ const AdventCalendar = () => {
     };
   }, [settingsRef]);
 
-  const handleDoorOpen = (day) => {
+  const handleDoorOpen = async (day) => {
     if (!calendarData[day]) {
       setAlertConfig({ show: true, type: 'error' });
       return;
@@ -177,12 +172,12 @@ const AdventCalendar = () => {
           darkMode ? 'bg-gray-800 bg-opacity-70' : 'bg-white bg-opacity-70'
         } backdrop-filter backdrop-blur-sm rounded-2xl shadow-md transition-colors duration-300`}>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
-            {doorOrder.map((day) => (
+            {Array.from({ length: 24 }, (_, i) => i + 1).map((day) => (
               <CalendarDoor
                 key={day}
                 day={day}
                 isOpen={openDoors[day]}
-                onOpen={handleDoorOpen}
+                onOpen={() => handleDoorOpen(day)}
                 contentPreview={calendarData[day]}
                 darkMode={darkMode}
                 doorStates={doorStates}

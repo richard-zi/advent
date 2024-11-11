@@ -192,7 +192,7 @@ app.get('/api/content', async (req, res) => {
         if (['video', 'image', 'gif'].includes(fileType)) {
           const thumbnail = await ThumbnailService.generateThumbnail(filePath, fileType);
           if (thumbnail) {
-            thumbnailUrl = getFullUrl(req, `/api/thumbnails/${path.basename(thumbnail)}`);
+            thumbnailUrl = getFullUrl(req, `/thumbnails/${path.basename(thumbnail)}`);
           }
         }
 
@@ -209,14 +209,14 @@ app.get('/api/content', async (req, res) => {
             break;
           case 'puzzle':
             const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
-            data = getFullUrl(req, `/api/media/${puzzleImageIndex}`);
+            data = getFullUrl(req, `/media/${puzzleImageIndex}`);
             
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
             }
             break;
           default:
-            data = getFullUrl(req, `/api/media/${index}`);
+            data = getFullUrl(req, `/media/${index}`);
         }
 
         const message = await MediaService.getMediaMessage(index);
