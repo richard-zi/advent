@@ -1,44 +1,32 @@
 /**
  * @fileoverview /backend/middleware/cors.js
- * CORS (Cross-Origin Resource Sharing) Middleware-Konfiguration
- * 
- * Diese Datei konfiguriert die CORS-Einstellungen für die API.
- * CORS ist notwendig, um Anfragen von anderen Domains zu erlauben,
- * was besonders wichtig für die Frontend-Backend-Kommunikation ist.
+ * CORS-Konfiguration für Reverse-Proxy Setup
  */
 
 const cors = require('cors');
 require('dotenv').config();
 
-// Erstelle eine CORS-Middleware mit erweiterter Konfiguration
 const corsMiddleware = cors({
   origin: (origin, callback) => {
     const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
     
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Erlaube Anfragen ohne Origin (z.B. vom Proxy)
     if (!origin) {
       return callback(null, true);
     }
 
-    // Convert HTTP origins to HTTPS if they match our allowed domains
-    const secureOrigin = origin.replace('http:', 'https:');
-    const originalOrigin = origin.replace('https:', 'http:');
-
-    if (allowedOrigins.includes(origin) || 
-        allowedOrigins.includes(secureOrigin) || 
-        allowedOrigins.includes(originalOrigin) ||
-        origin.startsWith('http://localhost')) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log('Blocked origin:', origin);
+      callback(null, true);  // Im Proxy-Setup erlauben wir zunächst alle Origins
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Forwarded-Proto'],
   credentials: true,
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  // Trust the X-Forwarded-Proto header from our reverse proxy
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Forwarded-Proto', 'X-Forwarded-Host'],
 });
 
 module.exports = corsMiddleware;
