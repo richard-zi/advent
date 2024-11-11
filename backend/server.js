@@ -24,7 +24,10 @@ const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
 const webhookRoutes = require('./routes/webhookRoutes');
-
+const express = require('express');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 // Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
@@ -67,6 +70,15 @@ app.use('/admin', adminRoutes);
 app.get('/', (req, res) => {
   res.send('Server läuft!');
 });
+
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
 
 /**
  * Route zum Abrufen von Mediendateien
