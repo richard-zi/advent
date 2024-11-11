@@ -23,6 +23,8 @@ const AuthService = require('./services/authService');
 const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
+const webhookRoutes = require('./routes/webhookRoutes');
+
 
 // Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
@@ -39,6 +41,9 @@ AuthService.initializeAdmin().catch(error => {
   logger.error('Fehler bei der Initialisierung der Admin-Anmeldedaten:', error);
   process.exit(1);
 });
+
+// Webhook
+app.use('/webhook', webhookRoutes);
 
 // Middleware-Konfiguration
 app.use(corsMiddleware);
