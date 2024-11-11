@@ -1,9 +1,10 @@
 /**
  * @fileoverview /backend/server.js
- * Hauptserver-Datei
+ * Main Server File
  * 
- * Dies ist die zentrale Serverdatei der Anwendung.
- * Sie initialisiert den Express-Server, lädt alle Middleware und definiert die Routen.
+ * This is the central server file of the application.
+ * It initializes the Express server, loads all middleware, and defines the routes.
+ * Updated to handle reverse proxy setup and HTTPS properly.
  */
 
 const express = require('express');
@@ -23,86 +24,99 @@ const AuthService = require('./services/authService');
 const FileUtils = require('./utils/fileUtils');
 const logger = require('./utils/logger');
 const paths = require('./config/paths');
-const webhookRoutes = require('./routes/webhookRoutes');
 
-
-// Initialisiere Express-App und setze den Port aus Umgebungsvariablen
+// Initialize Express app and set port from environment variables
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Stelle sicher, dass medium.json existiert
+// Trust proxy settings when behind reverse proxy
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
+// Ensure medium.json exists
 const mediumPath = path.join(__dirname, 'medium.json');
 if (!fs.existsSync(mediumPath)) {
   fs.writeFileSync(mediumPath, JSON.stringify({}), 'utf8');
 }
 
-// Initialisiere Admin-Anmeldedaten aus Umgebungsvariablen
+// Initialize admin credentials from environment variables
 AuthService.initializeAdmin().catch(error => {
-  logger.error('Fehler bei der Initialisierung der Admin-Anmeldedaten:', error);
+  logger.error('Error initializing admin credentials:', error);
   process.exit(1);
 });
 
+// Middleware to handle HTTPS redirect when behind reverse proxy
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !req.secure && req.get('x-forwarded-proto') !== 'https') {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+  next();
+});
 
-app.use('/webhook', webhookRoutes);
-
-// Middleware-Konfiguration
+// Middleware Configuration
 app.use(corsMiddleware);
 app.use(express.json());
-app.use('/thumbnails', timingMiddleware, express.static(paths.thumbnailsDir));
-app.use('/media', timingMiddleware, express.static(paths.mediaDir));
+app.use('/api/thumbnails', timingMiddleware, express.static(paths.thumbnailsDir));
+app.use('/api/media', timingMiddleware, express.static(paths.mediaDir));
 
-// Initialisiere benötigte Verzeichnisse und Systeme
+// Initialize required directories and systems
 FileUtils.ensureDirectoryExists(paths.mediaDir);
 FileUtils.ensureDirectoryExists(paths.thumbnailsDir);
 FileUtils.ensureDirectoryExists(paths.messagesDir);
 FileUtils.cleanupTempFiles();
 PollService.initializePolls();
 
-// Registriere Admin-Routen
-app.use('/admin', adminRoutes);
+// Helper function to generate full URLs considering reverse proxy
+function getFullUrl(req, path) {
+  return `${req.protocol}://${req.get('host')}${path}`;
+}
+
+// Register Admin Routes
+app.use('/api/admin', adminRoutes);
 
 /**
- * Basis-Route zur Serverüberprüfung
+ * Base route for server check
  */
-app.get('/', (req, res) => {
-  res.send('Server läuft!');
+app.get('/api', (req, res) => {
+  res.send('Server is running!');
 });
 
 /**
- * Route zum Abrufen von Mediendateien
- * Prüft die zeitliche Verfügbarkeit und sendet die angeforderte Datei
+ * Route for fetching media files
+ * Checks temporal availability and sends the requested file
  */
-app.get('/media/:index', async (req, res) => {
+app.get('/api/media/:index', async (req, res) => {
   try {
-    const index = parseInt(req.path.split("/").pop());
+    const index = parseInt(req.params.index);
     
-    // Prüfe ob das Türchen schon geöffnet werden darf
     if (!TimingService.dateCheck(index)) {
-      return res.status(423).send("Datei ist noch nicht verfügbar");
+      return res.status(423).send("File is not available yet");
     }
 
     const filePath = await MediaService.getMediaFile(index);
     res.sendFile(filePath);
   } catch (error) {
-    res.status(404).send('Datei nicht gefunden.');
+    logger.error('Error serving media file:', error);
+    res.status(404).send('File not found.');
   }
 });
 
 /**
- * Route zum Abrufen von Umfragedaten
- * Liefert Umfrageinformationen und Abstimmungsergebnisse
+ * Route for fetching poll data
+ * Delivers poll information and voting results
  */
 app.get('/api/poll/:doorNumber', async (req, res) => {
   try {
     const doorNumber = parseInt(req.params.doorNumber);
     
     if (!TimingService.dateCheck(doorNumber)) {
-      return res.status(423).json({ error: 'Umfrage ist noch nicht verfügbar' });
+      return res.status(423).json({ error: 'Poll is not available yet' });
     }
 
     const pollData = await PollService.getPollData(doorNumber);
     if (!pollData) {
-      return res.status(404).json({ error: 'Umfrage nicht gefunden' });
+      return res.status(404).json({ error: 'Poll not found' });
     }
 
     const votes = await PollService.getVotes(doorNumber);
@@ -114,66 +128,59 @@ app.get('/api/poll/:doorNumber', async (req, res) => {
       userVote
     });
   } catch (error) {
-    logger.error('Fehler beim Abrufen der Umfragedaten:', error);
-    res.status(500).json({ error: 'Fehler beim Abrufen der Umfragedaten' });
+    logger.error('Error fetching poll data:', error);
+    res.status(500).json({ error: 'Error fetching poll data' });
   }
 });
 
 /**
- * Route zum Abstimmen bei Umfragen
- * Verarbeitet Benutzerabstimmungen und aktualisiert die Ergebnisse
+ * Route for submitting poll votes
+ * Processes user votes and updates results
  */
 app.post('/api/poll/:doorNumber/vote', async (req, res) => {
   try {
     const doorNumber = parseInt(req.params.doorNumber);
     const { option, userId } = req.body;
 
-    // Validiere Eingabedaten
     if (!option || !userId) {
-      return res.status(400).json({ error: 'Option oder userId fehlt' });
+      return res.status(400).json({ error: 'Option or userId missing' });
     }
 
     if (!TimingService.dateCheck(doorNumber)) {
-      return res.status(423).json({ error: 'Umfrage ist noch nicht verfügbar' });
+      return res.status(423).json({ error: 'Poll is not available yet' });
     }
 
     const pollData = await PollService.getPollData(doorNumber);
     if (!pollData) {
-      return res.status(404).json({ error: 'Umfrage nicht gefunden' });
+      return res.status(404).json({ error: 'Poll not found' });
     }
 
     if (!pollData.options.includes(option)) {
-      return res.status(400).json({ error: 'Ungültige Option' });
+      return res.status(400).json({ error: 'Invalid option' });
     }
 
     const result = await PollService.vote(doorNumber, option, userId);
     res.json(result);
   } catch (error) {
-    logger.error('Fehler beim Erfassen der Abstimmung:', error);
-    res.status(500).json({ error: 'Fehler beim Erfassen der Abstimmung' });
+    logger.error('Error processing vote:', error);
+    res.status(500).json({ error: 'Error processing vote' });
   }
 });
 
-
 /**
- * Hauptroute der API
- * Liefert alle verfügbaren Inhalte mit Metadaten
+ * Main API route
+ * Delivers all available content with metadata
  */
-app.get('/api', async (req, res) => {
+app.get('/api/content', async (req, res) => {
   try {
-    // Lade aktuelle Daten aus medium.json
     const mediumContent = fs.readFileSync(mediumPath, 'utf8');
     const medium = JSON.parse(mediumContent);
-    
-    // Extrahiere doorStates aus dem Query-Parameter
     const doorStates = req.query.doorStates ? JSON.parse(req.query.doorStates) : {};
 
-    // Verarbeite alle Einträge
     const allDataEntries = await Promise.all(
       Object.entries(medium).map(async ([key, value]) => {
         const index = parseInt(key);
         
-        // Prüfe zeitliche Verfügbarkeit
         if (!TimingService.dateCheck(index)) {
           return [key, { type: "not available yet" }];
         }
@@ -182,15 +189,13 @@ app.get('/api', async (req, res) => {
         const fileType = FileUtils.getFileType(value);
         let thumbnailUrl = null;
         
-        // Generiere Thumbnails für visuelle Medien
         if (['video', 'image', 'gif'].includes(fileType)) {
           const thumbnail = await ThumbnailService.generateThumbnail(filePath, fileType);
           if (thumbnail) {
-            thumbnailUrl = `${req.protocol}://${req.get('host')}/thumbnails/${path.basename(thumbnail)}`;
+            thumbnailUrl = getFullUrl(req, `/api/thumbnails/${path.basename(thumbnail)}`);
           }
         }
 
-        // Bereite Medieninhalt vor
         const mediaContent = MediaService.prepareMediaContent(filePath, fileType, doorStates, index);
         let data;
         
@@ -204,18 +209,16 @@ app.get('/api', async (req, res) => {
             break;
           case 'puzzle':
             const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
-            const puzzleImagePath = path.join(paths.mediaDir, medium[puzzleImageIndex]);
-            data = `${req.protocol}://${req.get('host')}/media/${puzzleImageIndex}`;
+            data = getFullUrl(req, `/api/media/${puzzleImageIndex}`);
             
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
             }
             break;
           default:
-            data = `${req.protocol}://${req.get('host')}/media/${index}`;
+            data = getFullUrl(req, `/api/media/${index}`);
         }
 
-        // Lade zusätzliche Nachricht, falls vorhanden
         const message = await MediaService.getMediaMessage(index);
 
         return [key, {
@@ -230,24 +233,45 @@ app.get('/api', async (req, res) => {
 
     return res.status(200).json(Object.fromEntries(allDataEntries));
   } catch (error) {
-    logger.error('Fehler bei der Verarbeitung der API-Anfrage:', error);
-    return res.status(500).json({ error: 'Interner Serverfehler' });
+    logger.error('Error processing API request:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Registriere Error-Handler
+/**
+ * Health check endpoint
+ */
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Register Error Handler
 app.use(errorHandler);
 
-// Behandle Prozessbeendigung
+// Handle process termination
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM Signal empfangen. Server wird beendet...');
+  logger.info('SIGTERM Signal received. Server shutting down...');
   app.close(() => {
-    logger.info('Server beendet.');
+    logger.info('Server terminated.');
     process.exit(0);
   });
 });
 
-// Starte den Server
-app.listen(port, () => {
-  logger.info(`Server läuft auf http://localhost:${port}`);
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  // Perform clean shutdown
+  app.close(() => {
+    process.exit(1);
+  });
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Promise Rejection:', reason);
+});
+
+// Start the server
+app.listen(port, '127.0.0.1', () => {
+  logger.info(`Server running on http://127.0.0.1:${port}`);
 });
