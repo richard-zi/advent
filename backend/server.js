@@ -9,7 +9,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const https = require("https")
 require('dotenv').config();
 
 const corsMiddleware = require('./middleware/cors');
@@ -30,11 +29,6 @@ const webhookRoutes = require('./routes/webhookRoutes');
 // Initialisiere Express-App und setze den Port aus Umgebungsvariablen
 const app = express();
 const port = process.env.PORT || 5000;
-
-options = {
-  key: fs.readFileSync("key.pen"),
-  cert: fs.readFileSync("cert.pen"),
-}
 
 // Stelle sicher, dass medium.json existiert
 const mediumPath = path.join(__dirname, 'medium.json');
@@ -254,6 +248,6 @@ process.on('SIGTERM', () => {
 });
 
 // Starte den Server
-https.createServer(options, app).listen(port, () => {
-  logger.info(`Server läuft auf https://localhost:${port}`);
+app.listen(port, () => {
+  logger.info(`Server läuft auf http://localhost:${port}`);
 });
