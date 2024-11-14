@@ -90,12 +90,14 @@ function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
     return { x, y, width, height };
   };
 
+  /*
   const handleSolveClick = () => {
     const solvedPuzzle = createSolvedGrid();
     setPuzzle(solvedPuzzle);
     setWin(true);
     setShowConfetti(true);
   };
+  */
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -185,14 +187,15 @@ function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
         )}
       </div>
 
-      {/* Debug Button */}
+      {/* Debug Button 
       <button
         onClick={handleSolveClick}
         className="mb-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
       >
         Debug: Puzzle lösen
       </button>
-
+      */}
+      
       {showConfetti && (
         <Confetti
           width={window.innerWidth}
