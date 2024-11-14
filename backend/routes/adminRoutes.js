@@ -229,6 +229,40 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
   }
 });
 
+
+router.get('/validate-token', authMiddleware, (req, res) => {
+  res.json({ valid: true });
+});
+
+router.post('/verify-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const correctPassword = process.env.SITE_PASSWORD || 'advent2024';
+    
+    if (password === correctPassword) {
+      // Erstelle einen JWT-Token der nach 24 Stunden abläuft
+      const token = jwt.sign(
+        { type: 'visitor' },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      
+      res.json({ success: true, token });
+    } else {
+      res.status(401).json({ 
+        success: false, 
+        message: 'Falsches Passwort' 
+      });
+    }
+  } catch (error) {
+    logger.error('Password verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
+  }
+});
+
 router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
   const doorNumber = parseInt(req.params.doorNumber);
   const mediumPath = path.join(paths.rootDir, 'medium.json');

@@ -23,25 +23,24 @@ const JWT_SECRET = process.env.JWT_SECRET;
  */
 const authMiddleware = (req, res, next) => {
   try {
-    // Extrahiere den Authorization-Header
     const authHeader = req.headers.authorization;
     
-    // Prüfe ob der Authorization-Header existiert und korrekt formatiert ist
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    // Extrahiere und verifiziere das JWT-Token
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Füge decodierte Benutzerinformationen zum Request-Objekt hinzu
+    // Überprüfe ob der Token abgelaufen ist
+    const now = Math.floor(Date.now() / 1000);
+    if (decoded.exp && decoded.exp < now) {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+
     req.user = decoded;
-    
-    // Fahre mit der Request-Verarbeitung fort
     next();
   } catch (error) {
-    // Logge Authentifizierungsfehler für Debugging-Zwecke
     logger.error('Authentication error:', error);
     return res.status(401).json({ error: 'Invalid token' });
   }
