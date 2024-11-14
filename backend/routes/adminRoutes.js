@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const util = require('util');
+const jwt = require('jsonwebtoken'); 
 const sleep = util.promisify(setTimeout);
 require('dotenv').config();
 
