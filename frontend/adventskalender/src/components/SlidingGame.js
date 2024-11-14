@@ -46,9 +46,11 @@ function createInitialGrid() {
   return shuffle(arr);
 }
 
+/*
 function createSolvedGrid() {
   return Array.from({ length: gridSize * gridSize }, (_, i) => i);
 }
+*/
 
 function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
   const [puzzle, setPuzzle] = useState(() => {
@@ -195,7 +197,7 @@ function SlidingGame({imageUrl, doorStates, setDoorStates, day}) {
         Debug: Puzzle lösen
       </button>
       */}
-      
+
       {showConfetti && (
         <Confetti
           width={window.innerWidth}
