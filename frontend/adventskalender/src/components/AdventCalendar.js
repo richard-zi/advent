@@ -9,8 +9,8 @@ import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
 // Import background images - replace with your actual image paths
-import lightBackground from './assets/light-background.jpg';
-import darkBackground from './assets/dark-background.jpg';
+import lightBackground from '../assets/light-background.jpg';
+import darkBackground from '../assets/dark-background.jpg';
 
 // Update these credits according to your actual image sources
 const backgroundCredits = {
