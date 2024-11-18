@@ -8,11 +8,11 @@ import AlertMessage from './AlertMessage';
 import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
-// Import background images - replace with your actual image paths
-import lightBackground from '../assets/light-background.jpg';
-import darkBackground from '../assets/dark-background.jpg';
+// Import background images
+import lightBackground from './assets/light-background.jpg';
+import darkBackground from './assets/dark-background.jpg';
 
-// Update these credits according to your actual image sources
+// Credits configuration
 const backgroundCredits = {
   light: {
     text: "Unsplash",
@@ -55,6 +55,7 @@ const AdventCalendar = () => {
     light: false,
     dark: false
   });
+  const [themeLoading, setThemeLoading] = useState(true);
   
   const settingsRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -64,6 +65,28 @@ const AdventCalendar = () => {
     9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
     19, 8, 21, 14
   ], []);
+
+  // Initialize theme with a loading state
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialDarkMode = savedTheme !== null ? JSON.parse(savedTheme) : prefersDark;
+    
+    // Apply initial theme without transition
+    document.documentElement.classList.add('no-transitions');
+    if (initialDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Remove no-transitions class after a short delay
+    setTimeout(() => {
+      document.documentElement.classList.remove('no-transitions');
+      setThemeLoading(false);
+      setDarkMode(initialDarkMode);
+    }, 100);
+  }, []);
 
   // Check if background images are available
   useEffect(() => {
@@ -115,6 +138,17 @@ const AdventCalendar = () => {
   }, []);
 
   useEffect(() => {
+    if (!themeLoading) {
+      localStorage.setItem('darkMode', JSON.stringify(darkMode));
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, [darkMode, themeLoading]);
+
+  useEffect(() => {
     localStorage.setItem('doorStates', JSON.stringify(doorStates));
     
     if (abortControllerRef.current) {
@@ -134,15 +168,6 @@ const AdventCalendar = () => {
   useEffect(() => {
     localStorage.setItem('openDoors', JSON.stringify(openDoors));
   }, [openDoors]);
-
-  useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   useEffect(() => {
     localStorage.setItem('snowfall', JSON.stringify(snowfall));
@@ -192,60 +217,28 @@ const AdventCalendar = () => {
     setSnowfall(prev => !prev);
   }, []);
 
-  const BackgroundImage = ({ src, isActive }) => (
-    <div 
-      className={`
-        fixed inset-0 transition-opacity duration-700 bg-cover bg-center bg-fixed
-        ${isActive ? 'opacity-100' : 'opacity-0'}
-      `}
-      style={{
-        backgroundImage: `linear-gradient(to bottom, 
-          ${darkMode ? 'rgba(17, 24, 39, 0.7)' : 'rgba(243, 244, 246, 0.7)'}, 
-          ${darkMode ? 'rgba(17, 24, 39, 0.7)' : 'rgba(243, 244, 246, 0.7)'}),
-          url(${src})`,
-        zIndex: -1
-      }}
-    />
-  );
-
   const BackgroundCredit = ({ darkMode }) => {
     const currentTheme = darkMode ? 'dark' : 'light';
     if (!backgroundsLoaded[currentTheme]) return null;
 
     return (
       <div className={`
-        fixed bottom-4 left-4 z-10 
-        flex flex-col items-start
-        backdrop-blur-md rounded-lg p-3
-        ${darkMode 
-          ? 'bg-gray-900/30 text-gray-200' 
-          : 'bg-white/30 text-gray-800'
-        }
-        transition-all duration-300 ease-in-out
-        transform hover:scale-102
-        border border-opacity-20
-        ${darkMode ? 'border-gray-400' : 'border-gray-600'}
+        fixed bottom-2 left-2 z-10 
+        opacity-60 hover:opacity-100
+        transition-opacity duration-300
       `}>
-        <div className="text-sm font-medium mb-1">
-          Photo by{' '}
-          <a
-            href={darkMode ? backgroundCredits.dark.link : backgroundCredits.light.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`
-              font-semibold hover:underline
-              ${darkMode ? 'text-blue-300' : 'text-blue-600'}
-            `}
-          >
-            {darkMode ? backgroundCredits.dark.photographer : backgroundCredits.light.photographer}
-          </a>
-        </div>
-        <div className={`
-          text-xs
-          ${darkMode ? 'text-gray-400' : 'text-gray-600'}
-        `}>
-          {darkMode ? backgroundCredits.dark.text : backgroundCredits.light.text}
-        </div>
+        <a
+          href={darkMode ? backgroundCredits.dark.link : backgroundCredits.light.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`
+            text-xs
+            ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'}
+            transition-colors duration-300
+          `}
+        >
+          Photo: {darkMode ? backgroundCredits.dark.photographer : backgroundCredits.light.photographer}
+        </a>
       </div>
     );
   };
@@ -276,20 +269,61 @@ const AdventCalendar = () => {
     );
   };
 
+  if (themeLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" darkMode={false} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 relative transition-all duration-300">
+    <div 
+      className={`
+        min-h-screen flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 
+        relative transition-all duration-300
+        ${themeLoading ? 'opacity-0' : 'opacity-100'}
+      `}
+    >
       {/* Background base layer */}
-      <div className="fixed inset-0 transition-colors duration-700" style={{
-        backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(243, 244, 246)',
-        zIndex: -2
-      }} />
+      <div 
+        className="fixed inset-0 transition-colors duration-700" 
+        style={{
+          backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(243, 244, 246)',
+          zIndex: -2
+        }} 
+      />
       
       {/* Background images with crossfade */}
       {backgroundsLoaded.light && (
-        <BackgroundImage src={lightBackground} isActive={!darkMode} />
+        <div 
+          className={`
+            fixed inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700
+            ${!darkMode ? 'opacity-100' : 'opacity-0'}
+          `}
+          style={{
+            backgroundImage: `linear-gradient(to bottom, 
+              rgba(243, 244, 246, 0.7), 
+              rgba(243, 244, 246, 0.7)),
+              url(${lightBackground})`,
+            zIndex: -1
+          }}
+        />
       )}
       {backgroundsLoaded.dark && (
-        <BackgroundImage src={darkBackground} isActive={darkMode} />
+        <div 
+          className={`
+            fixed inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700
+            ${darkMode ? 'opacity-100' : 'opacity-0'}
+          `}
+          style={{
+            backgroundImage: `linear-gradient(to bottom, 
+              rgba(17, 24, 39, 0.7), 
+              rgba(17, 24, 39, 0.7)),
+              url(${darkBackground})`,
+            zIndex: -1
+          }}
+        />
       )}
 
       <Snowfall isActive={snowfall} />
