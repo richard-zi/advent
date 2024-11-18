@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Settings } from 'lucide-react';
 import CalendarDoor from './CalendarDoor';
 import ContentPopup from './ContentPopup';
 import SettingsModal from './SettingsModal';
 import Snowfall from './Snowfall';
 import AlertMessage from './AlertMessage';
+import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
 const AdventCalendar = () => {
@@ -27,22 +28,39 @@ const AdventCalendar = () => {
     const saved = localStorage.getItem('snowfall');
     return saved !== null ? JSON.parse(saved) : true;
   });
-  const settingsRef = useRef(null);
   const [doorStates, setDoorStates] = useState(() => {
     const saved = localStorage.getItem('doorStates');
     return saved ? JSON.parse(saved) : {};
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  const settingsRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
-  const fetchCalendarData = useCallback(async () => {
+  const doorOrder = useMemo(() => [
+    7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
+    9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
+    19, 8, 21, 14
+  ], []);
+
+  const fetchCalendarData = useCallback(async (signal) => {
     try {
+      setIsLoading(true);
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
         params: {
           doorStates: JSON.stringify(doorStates)
-        }
+        },
+        signal
       });
       setCalendarData(response.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Error fetching data:', error);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsInitialLoad(false);
     }
   }, [doorStates]);
 
@@ -61,18 +79,20 @@ const AdventCalendar = () => {
 
   useEffect(() => {
     localStorage.setItem('doorStates', JSON.stringify(doorStates));
-    fetchCalendarData();
+    
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
+    fetchCalendarData(abortControllerRef.current.signal);
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [doorStates, fetchCalendarData]);
-
-  const doorOrder = [
-    7, 15, 1, 24, 10, 4, 18, 12, 3, 22,
-    9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
-    19, 8, 21, 14
-  ];
-
-  useEffect(() => {
-    fetchCalendarData();
-  }, [fetchCalendarData]);
 
   useEffect(() => {
     localStorage.setItem('openDoors', JSON.stringify(openDoors));
@@ -104,7 +124,7 @@ const AdventCalendar = () => {
     };
   }, [settingsRef]);
 
-  const handleDoorOpen = (day) => {
+  const handleDoorOpen = useCallback((day) => {
     if (!calendarData[day]) {
       setAlertConfig({ show: true, type: 'error' });
       return;
@@ -117,22 +137,48 @@ const AdventCalendar = () => {
 
     setOpenDoors(prev => ({ ...prev, [day]: true }));
     setSelectedContent({ day, ...calendarData[day] });
-  };
-  
-  const handleClosePopup = () => {
+  }, [calendarData]);
+
+  const handleClosePopup = useCallback(() => {
     setSelectedContent(null);
-  };
+  }, []);
 
-  const toggleSettings = () => {
-    setIsSettingsOpen(!isSettingsOpen);
-  };
+  const toggleSettings = useCallback(() => {
+    setIsSettingsOpen(prev => !prev);
+  }, []);
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = useCallback(() => {
     setDarkMode(prev => !prev);
-  };
+  }, []);
 
-  const toggleSnowfall = () => {
+  const toggleSnowfall = useCallback(() => {
     setSnowfall(prev => !prev);
+  }, []);
+
+  const renderCalendarContent = () => {
+    if (isInitialLoad) {
+      return (
+        <div className="min-h-[600px] w-full flex flex-col items-center justify-center">
+          <LoadingSpinner size="large" darkMode={darkMode} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+        {doorOrder.map((day) => (
+          <CalendarDoor
+            key={day}
+            day={day}
+            isOpen={openDoors[day]}
+            onOpen={handleDoorOpen}
+            contentPreview={calendarData[day]}
+            darkMode={darkMode}
+            doorStates={doorStates}
+          />
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -176,19 +222,7 @@ const AdventCalendar = () => {
         <div className={`w-full max-w-xs sm:max-w-2xl md:max-w-4xl lg:max-w-5xl p-2 sm:p-4 ${
           darkMode ? 'bg-gray-800 bg-opacity-70' : 'bg-white bg-opacity-70'
         } backdrop-filter backdrop-blur-sm rounded-2xl shadow-md transition-colors duration-300`}>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
-            {doorOrder.map((day) => (
-              <CalendarDoor
-                key={day}
-                day={day}
-                isOpen={openDoors[day]}
-                onOpen={handleDoorOpen}
-                contentPreview={calendarData[day]}
-                darkMode={darkMode}
-                doorStates={doorStates}
-              />
-            ))}
-          </div>
+          {renderCalendarContent()}
         </div>
       </div>
 

@@ -1,6 +1,38 @@
-import React from 'react';
-import SmallCountdown from './SmallCountdown';
+import React, { Suspense, useState } from 'react';
 import { BarChart2, Puzzle } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
+
+const SmallCountdown = React.lazy(() => import('./SmallCountdown'));
+
+const LoadingFallback = ({ darkMode }) => (
+  <div className="flex justify-center items-center p-2">
+    <LoadingSpinner size="small" darkMode={darkMode} />
+  </div>
+);
+
+const MediaPreview = ({ src, alt, darkMode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <div className="w-full h-full relative">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <LoadingSpinner size="small" darkMode={darkMode} />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-full object-cover absolute inset-0 ${
+          isLoading ? 'opacity-0' : 'opacity-100'
+        } transition-opacity duration-300`}
+        onLoad={() => setIsLoading(false)}
+        loading="lazy"
+      />
+      <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
+    </div>
+  );
+};
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   const getPreviewText = (text) => {
@@ -40,7 +72,9 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
     if (contentPreview.type === 'countdown') {
       return (
         <div className="flex-1 flex items-center justify-center p-2">
-          <SmallCountdown darkMode={darkMode} />
+          <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
+            <SmallCountdown darkMode={darkMode} />
+          </Suspense>
         </div>
       );
     }
@@ -74,7 +108,6 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
           </div>
         );
       case 'puzzle':
-        // Show icon if puzzle is not solved, otherwise show completed image
         if (!contentPreview.isSolved) {
           return (
             <div className="w-full h-full flex items-center justify-center">
@@ -82,29 +115,22 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
             </div>
           );
         }
-        // If solved, show the complete image
         return contentPreview.thumbnail ? (
-          <div className="w-full h-full relative">
-            <img
-              src={contentPreview.data}
-              alt={`Completed puzzle for door ${day}`}
-              className="w-full h-full object-cover absolute inset-0"
-            />
-            <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
-          </div>
+          <MediaPreview
+            src={contentPreview.data}
+            alt={`Completed puzzle for door ${day}`}
+            darkMode={darkMode}
+          />
         ) : null;
       case 'video':
       case 'image':
       case 'gif':
         return contentPreview.thumbnail ? (
-          <div className="w-full h-full relative">
-            <img
-              src={contentPreview.thumbnail}
-              alt={`Vorschau für Türchen ${day}`}
-              className="w-full h-full object-cover absolute inset-0"
-            />
-            <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
-          </div>
+          <MediaPreview
+            src={contentPreview.thumbnail}
+            alt={`Vorschau für Türchen ${day}`}
+            darkMode={darkMode}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

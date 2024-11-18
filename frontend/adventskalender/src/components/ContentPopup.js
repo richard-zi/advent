@@ -1,21 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Play, Pause } from 'lucide-react';
 import Dialog from './Dialog';
-import ChristmasCountdown from './ChristmasCountdown';
-import Poll from './Poll';
-import SlidingGame from './SlidingGame'; 
+import ReactMarkdown from 'react-markdown';
+import LoadingSpinner from './LoadingSpinner';
+
+const ChristmasCountdown = React.lazy(() => import('./ChristmasCountdown'));
+const Poll = React.lazy(() => import('./Poll'));
+const SlidingGame = React.lazy(() => import('./SlidingGame'));
 
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const audioRef = useRef(null);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.addEventListener('loadedmetadata', () => {
         setDuration(audioRef.current.duration);
+        setIsLoading(false);
       });
       audioRef.current.addEventListener('timeupdate', () => {
         setCurrentTime(audioRef.current.currentTime);
@@ -44,6 +48,14 @@ const AudioPlayer = ({ src, darkMode }) => {
     const secs = Math.floor(seconds % 60);
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-2xl mx-auto p-6 flex justify-center">
+        <LoadingSpinner darkMode={darkMode} />
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full max-w-2xl mx-auto p-6 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -79,109 +91,164 @@ const AudioPlayer = ({ src, darkMode }) => {
   );
 };
 
-const VideoPlayer = ({ src }) => {
+const VideoPlayer = ({ src, darkMode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
   return (
     <div className="relative w-full max-w-3xl mx-auto">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <LoadingSpinner darkMode={true} size="large" />
+        </div>
+      )}
       <div className="w-full aspect-w-16 aspect-h-9 max-h-[60vh]">
         <video 
           controls 
           className="w-full h-full object-contain bg-black"
           style={{ maxHeight: '60vh' }}
+          onLoadedData={() => setIsLoading(false)}
         >
           <source src={src} type="video/mp4" />
           Ihr Browser unterstützt das Video-Tag nicht.
         </video>
       </div>
+      </div>
+  );
+};
+
+const ImageContent = ({ src, alt, darkMode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <div className="relative flex justify-center">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <LoadingSpinner darkMode={darkMode} />
+        </div>
+      )}
+      <img 
+        src={src} 
+        alt={alt} 
+        className={`max-w-full h-auto max-h-[60vh] ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onLoad={() => setIsLoading(false)}
+        loading="lazy"
+      />
     </div>
   );
 };
 
-const GifPlayer = ({ src }) => {
+const GifPlayer = ({ src, darkMode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
   return (
     <div className="relative w-full max-w-3xl mx-auto">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <LoadingSpinner darkMode={darkMode} />
+        </div>
+      )}
       <div className="w-full flex justify-center">
         <img 
           src={src} 
           alt="GIF Animation" 
-          className="max-w-full h-auto max-h-[60vh] object-contain"
+          className={`max-w-full h-auto max-h-[60vh] object-contain ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          onLoad={() => setIsLoading(false)}
+          loading="lazy"
         />
       </div>
     </div>
   );
 };
 
-const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorStates}) => {
+const LoadingFallback = ({ darkMode }) => (
+  <div className="flex justify-center items-center p-8">
+    <LoadingSpinner darkMode={darkMode} />
+  </div>
+);
+
+const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorStates }) => {
+  const [contentLoading, setContentLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setContentLoading(true);
+      const timer = setTimeout(() => setContentLoading(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, content]);
+
   if (!content) return null;
-  console.log(doorStates);
+
   const darkModeClass = darkMode 
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
     : '';
 
-    const renderContent = () => {
-      switch (content.type) {
-        case 'countdown':
-          return (
+  const renderContent = () => {
+    if (contentLoading) {
+      return <LoadingFallback darkMode={darkMode} />;
+    }
+
+    switch (content.type) {
+      case 'countdown':
+        return (
+          <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
             <div className="mt-6">
               <ChristmasCountdown darkMode={darkMode} />
             </div>
-          );
-        case 'poll':
-          return <Poll doorNumber={content.day} darkMode={darkMode} />;
-        case 'text':
-          return (
-            <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
-              <ReactMarkdown>{content.data}</ReactMarkdown>
-            </div>
-          );
-        case 'video':
-          return <VideoPlayer src={content.data} />;
-        case 'gif':
-          return <GifPlayer src={content.data} />;
-        case 'audio':
-          return <AudioPlayer src={content.data} darkMode={darkMode} />;
-        case 'image':
-          return (
+          </Suspense>
+        );
+      case 'poll':
+        return (
+          <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
+            <Poll doorNumber={content.day} darkMode={darkMode} />
+          </Suspense>
+        );
+      case 'text':
+        return (
+          <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
+            <ReactMarkdown>{content.data}</ReactMarkdown>
+          </div>
+        );
+      case 'video':
+        return <VideoPlayer src={content.data} darkMode={darkMode} />;
+      case 'gif':
+        return <GifPlayer src={content.data} darkMode={darkMode} />;
+      case 'audio':
+        return <AudioPlayer src={content.data} darkMode={darkMode} />;
+      case 'image':
+        return <ImageContent src={content.data} alt="Bild" darkMode={darkMode} />;
+      case 'puzzle':
+        return (
+          <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
             <div className="flex justify-center">
-              <img src={content.data} alt="Bild" className="max-w-full h-auto max-h-[60vh]" />
+              <SlidingGame 
+                imageUrl={content.data} 
+                doorStates={doorStates} 
+                setDoorStates={setDoorStates} 
+                day={content.day}
+              />
             </div>
-          );
-        case 'puzzle':
-          return (
-            <div className="flex justify-center">
-              <SlidingGame imageUrl={content.data} doorStates={doorStates} setDoorStates={setDoorStates} day={content.day}/>
-            </div>
-          );
-        default:
-          return null;
-      }
-    };
+          </Suspense>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} darkMode={darkMode}>
       <div className="space-y-8">
-        {/* Türchen Titel kommt zuerst */}
         <div className="text-center">
           <h2 className={`text-4xl sm:text-5xl font-bold ${
             darkMode ? 'text-white' : 'text-gray-800'
           }`}>
             Türchen {content.day}
           </h2>
-          
-          {/* Countdown direkt unter dem Titel, wenn es ein Countdown-Typ ist */}
-          {content.type === 'countdown' && (
-            <div className="mt-6">
-              <ChristmasCountdown darkMode={darkMode} />
-            </div>
-          )}
         </div>
 
-        {/* Andere Content-Typen */}
-        {content.type !== 'countdown' && (
-          <div>{renderContent()}</div>
-        )}
+        <div>{renderContent()}</div>
 
-        {/* Message/Text wird immer am Ende angezeigt */}
-        {content.text && (
+        {content.text && !contentLoading && (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none text-center ${darkModeClass}`}>
             <ReactMarkdown>{content.text}</ReactMarkdown>
           </div>
