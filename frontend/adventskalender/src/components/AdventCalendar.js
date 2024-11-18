@@ -32,7 +32,6 @@ const AdventCalendar = () => {
     const saved = localStorage.getItem('doorStates');
     return saved ? JSON.parse(saved) : {};
   });
-  const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const settingsRef = useRef(null);
@@ -46,7 +45,6 @@ const AdventCalendar = () => {
 
   const fetchCalendarData = useCallback(async (signal) => {
     try {
-      setIsLoading(true);
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
         params: {
           doorStates: JSON.stringify(doorStates)
@@ -59,7 +57,6 @@ const AdventCalendar = () => {
         console.error('Error fetching data:', error);
       }
     } finally {
-      setIsLoading(false);
       setIsInitialLoad(false);
     }
   }, [doorStates]);
