@@ -8,6 +8,22 @@ import AlertMessage from './AlertMessage';
 import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
+// Import background images - replace with your actual image paths
+import lightBackground from './assets/light-background.jpg';
+import darkBackground from './assets/dark-background.jpg';
+
+// Update these credits according to your actual image sources
+const backgroundCredits = {
+  light: {
+    text: "Light mode photo credit",
+    link: "https://your-light-image-source.com"
+  },
+  dark: {
+    text: "Dark mode photo credit",
+    link: "https://your-dark-image-source.com"
+  }
+};
+
 const AdventCalendar = () => {
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
@@ -33,6 +49,10 @@ const AdventCalendar = () => {
     return saved ? JSON.parse(saved) : {};
   });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [backgroundsLoaded, setBackgroundsLoaded] = useState({
+    light: false,
+    dark: false
+  });
   
   const settingsRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -42,6 +62,24 @@ const AdventCalendar = () => {
     9, 20, 6, 17, 2, 13, 5, 23, 11, 16,
     19, 8, 21, 14
   ], []);
+
+  // Check if background images are available
+  useEffect(() => {
+    const checkImage = (url, theme) => {
+      const img = new Image();
+      img.onload = () => setBackgroundsLoaded(prev => ({ ...prev, [theme]: true }));
+      img.onerror = () => setBackgroundsLoaded(prev => ({ ...prev, [theme]: false }));
+      img.src = url;
+    };
+
+    try {
+      checkImage(lightBackground, 'light');
+      checkImage(darkBackground, 'dark');
+    } catch (error) {
+      console.warn('Error loading background images:', error);
+      setBackgroundsLoaded({ light: false, dark: false });
+    }
+  }, []);
 
   const fetchCalendarData = useCallback(async (signal) => {
     try {
@@ -152,6 +190,45 @@ const AdventCalendar = () => {
     setSnowfall(prev => !prev);
   }, []);
 
+  const getBackgroundStyle = useCallback(() => {
+    const currentTheme = darkMode ? 'dark' : 'light';
+    const imageLoaded = backgroundsLoaded[currentTheme];
+    
+    if (imageLoaded) {
+      return {
+        backgroundImage: `url(${darkMode ? darkBackground : lightBackground})`,
+        backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(243, 244, 246)'
+      };
+    }
+    
+    // Fallback to gradient
+    return darkMode 
+      ? { background: 'linear-gradient(to bottom right, rgb(31, 41, 55), rgb(17, 24, 39))' }
+      : { background: 'linear-gradient(to bottom right, rgb(243, 244, 246), rgb(229, 231, 235))' };
+  }, [darkMode, backgroundsLoaded]);
+
+  const BackgroundCredit = ({ darkMode }) => {
+    const currentTheme = darkMode ? 'dark' : 'light';
+    if (!backgroundsLoaded[currentTheme]) return null;
+
+    return (
+      <a
+        href={darkMode ? backgroundCredits.dark.link : backgroundCredits.light.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`
+          fixed bottom-2 left-2 z-10 
+          text-xs transition-colors duration-300
+          hover:underline
+          ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}
+          bg-black bg-opacity-20 backdrop-blur-sm rounded px-2 py-1
+        `}
+      >
+        {darkMode ? backgroundCredits.dark.text : backgroundCredits.light.text}
+      </a>
+    );
+  };
+
   const renderCalendarContent = () => {
     if (isInitialLoad) {
       return (
@@ -179,10 +256,17 @@ const AdventCalendar = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${
-      darkMode ? 'from-gray-800 to-gray-900' : 'from-gray-50 to-gray-100'
-    } flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 relative transition-colors duration-300`}>
+    <div 
+      className={`
+        min-h-screen flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 
+        relative transition-all duration-300 
+        ${backgroundsLoaded[darkMode ? 'dark' : 'light'] ? 'bg-cover bg-center bg-fixed' : ''}
+      `}
+      style={getBackgroundStyle()}
+    >
       <Snowfall isActive={snowfall} />
+      
+      <BackgroundCredit darkMode={darkMode} />
       
       <AlertMessage 
         isVisible={alertConfig.show}

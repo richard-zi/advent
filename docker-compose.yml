@@ -1,0 +1,84 @@
+version: "3.6"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: adventskalender-frontend:latest
+    networks:
+      - t2_proxy
+    depends_on:
+      - backend
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.advent-frontend.rule: "Host(`${DOMAIN}`)"
+      traefik.http.routers.advent-frontend.entrypoints: "web"
+      traefik.http.routers.advent-frontend.middlewares: "bwi-only@file"
+      traefik.http.services.advent-frontend.loadbalancer.server.port: "3000"
+      traefik.http.routers.advent-frontend-ssl.rule: "Host(`${DOMAIN}`)"
+      traefik.http.routers.advent-frontend-ssl.entrypoints: "websecure"
+      traefik.http.routers.advent-frontend-ssl.middlewares: "bwi-only@file"
+      traefik.http.routers.advent-frontend-ssl.tls: "true"
+    environment:
+      - REACT_APP_API_URL=https://${DOMAIN}/api
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: >
+      sh -c "cd /app &&
+             git pull origin main &&
+             npm install &&
+             npm run start"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: adventskalender-backend:latest
+    networks:
+      - t2_proxy
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes: "/api"
+      traefik.http.routers.advent-backend.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      traefik.http.routers.advent-backend.middlewares: "strip-api-prefix@docker, bwi-only@file"
+      traefik.http.routers.advent-backend.entrypoints: "web"
+      traefik.http.services.advent-backend.loadbalancer.server.port: "5000"
+      traefik.http.routers.advent-backend-ssl.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      traefik.http.routers.advent-backend-ssl.middlewares: "strip-api-prefix@docker, bwi-only@file"
+      traefik.http.routers.advent-backend-ssl.entrypoints: "websecure"
+      traefik.http.routers.advent-backend-ssl.tls: "true"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SITE_PASSWORD=${SITE_PASSWORD}
+      - ALLOWED_ORIGINS=https://${DOMAIN}
+      - MAX_FILE_SIZE=52428800
+      - THUMBNAIL_WIDTH=500
+      - THUMBNAIL_QUALITY=85
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_media:/app/media
+      - backend_thumbnails:/app/thumbnails
+      - backend_messages:/app/messages
+    restart: unless-stopped
+    command: >
+      sh -c "cd /app &&
+             git pull origin main &&
+             npm install &&
+             node server.js"
+
+networks:
+  t2_proxy:
+    external:
+      name: t2_proxy
+
+volumes:
+  backend_media:
+  backend_thumbnails:
+  backend_messages:
