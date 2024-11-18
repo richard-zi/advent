@@ -9,8 +9,8 @@ import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
 // Import background images
-import lightBackground from './assets/light-background.jpg';
-import darkBackground from './assets/dark-background.jpg';
+import lightBackground from '../assets/light-background.jpg';
+import darkBackground from '../assets/dark-background.jpg';
 
 // Credits configuration
 const backgroundCredits = {
