@@ -15,12 +15,14 @@ import darkBackground from '../assets/dark-background.jpg';
 // Update these credits according to your actual image sources
 const backgroundCredits = {
   light: {
-    text: "Light mode photo credit",
-    link: "https://your-light-image-source.com"
+    text: "Unsplash",
+    link: "https://your-light-image-source.com",
+    photographer: "Photographer Name"
   },
   dark: {
-    text: "Dark mode photo credit",
-    link: "https://your-dark-image-source.com"
+    text: "Unsplash",
+    link: "https://your-dark-image-source.com",
+    photographer: "Photographer Name"
   }
 };
 
@@ -190,42 +192,61 @@ const AdventCalendar = () => {
     setSnowfall(prev => !prev);
   }, []);
 
-  const getBackgroundStyle = useCallback(() => {
-    const currentTheme = darkMode ? 'dark' : 'light';
-    const imageLoaded = backgroundsLoaded[currentTheme];
-    
-    if (imageLoaded) {
-      return {
-        backgroundImage: `url(${darkMode ? darkBackground : lightBackground})`,
-        backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(243, 244, 246)'
-      };
-    }
-    
-    // Fallback to gradient
-    return darkMode 
-      ? { background: 'linear-gradient(to bottom right, rgb(31, 41, 55), rgb(17, 24, 39))' }
-      : { background: 'linear-gradient(to bottom right, rgb(243, 244, 246), rgb(229, 231, 235))' };
-  }, [darkMode, backgroundsLoaded]);
+  const BackgroundImage = ({ src, isActive }) => (
+    <div 
+      className={`
+        fixed inset-0 transition-opacity duration-700 bg-cover bg-center bg-fixed
+        ${isActive ? 'opacity-100' : 'opacity-0'}
+      `}
+      style={{
+        backgroundImage: `linear-gradient(to bottom, 
+          ${darkMode ? 'rgba(17, 24, 39, 0.7)' : 'rgba(243, 244, 246, 0.7)'}, 
+          ${darkMode ? 'rgba(17, 24, 39, 0.7)' : 'rgba(243, 244, 246, 0.7)'}),
+          url(${src})`,
+        zIndex: -1
+      }}
+    />
+  );
 
   const BackgroundCredit = ({ darkMode }) => {
     const currentTheme = darkMode ? 'dark' : 'light';
     if (!backgroundsLoaded[currentTheme]) return null;
 
     return (
-      <a
-        href={darkMode ? backgroundCredits.dark.link : backgroundCredits.light.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`
-          fixed bottom-2 left-2 z-10 
-          text-xs transition-colors duration-300
-          hover:underline
-          ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}
-          bg-black bg-opacity-20 backdrop-blur-sm rounded px-2 py-1
-        `}
-      >
-        {darkMode ? backgroundCredits.dark.text : backgroundCredits.light.text}
-      </a>
+      <div className={`
+        fixed bottom-4 left-4 z-10 
+        flex flex-col items-start
+        backdrop-blur-md rounded-lg p-3
+        ${darkMode 
+          ? 'bg-gray-900/30 text-gray-200' 
+          : 'bg-white/30 text-gray-800'
+        }
+        transition-all duration-300 ease-in-out
+        transform hover:scale-102
+        border border-opacity-20
+        ${darkMode ? 'border-gray-400' : 'border-gray-600'}
+      `}>
+        <div className="text-sm font-medium mb-1">
+          Photo by{' '}
+          <a
+            href={darkMode ? backgroundCredits.dark.link : backgroundCredits.light.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`
+              font-semibold hover:underline
+              ${darkMode ? 'text-blue-300' : 'text-blue-600'}
+            `}
+          >
+            {darkMode ? backgroundCredits.dark.photographer : backgroundCredits.light.photographer}
+          </a>
+        </div>
+        <div className={`
+          text-xs
+          ${darkMode ? 'text-gray-400' : 'text-gray-600'}
+        `}>
+          {darkMode ? backgroundCredits.dark.text : backgroundCredits.light.text}
+        </div>
+      </div>
     );
   };
 
@@ -256,14 +277,21 @@ const AdventCalendar = () => {
   };
 
   return (
-    <div 
-      className={`
-        min-h-screen flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 
-        relative transition-all duration-300 
-        ${backgroundsLoaded[darkMode ? 'dark' : 'light'] ? 'bg-cover bg-center bg-fixed' : ''}
-      `}
-      style={getBackgroundStyle()}
-    >
+    <div className="min-h-screen flex flex-col items-center pt-4 sm:pt-8 md:pt-12 p-2 sm:p-4 relative transition-all duration-300">
+      {/* Background base layer */}
+      <div className="fixed inset-0 transition-colors duration-700" style={{
+        backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(243, 244, 246)',
+        zIndex: -2
+      }} />
+      
+      {/* Background images with crossfade */}
+      {backgroundsLoaded.light && (
+        <BackgroundImage src={lightBackground} isActive={!darkMode} />
+      )}
+      {backgroundsLoaded.dark && (
+        <BackgroundImage src={darkBackground} isActive={darkMode} />
+      )}
+
       <Snowfall isActive={snowfall} />
       
       <BackgroundCredit darkMode={darkMode} />
