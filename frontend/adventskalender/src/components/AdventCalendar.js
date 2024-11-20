@@ -8,8 +8,11 @@ import AlertMessage from './AlertMessage';
 import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
+// Import background images
 import lightBackground from '../assets/light-background.jpg';
 import darkBackground from '../assets/dark-background.jpg';
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 const backgroundCredits = {
   light: {
@@ -24,15 +27,62 @@ const backgroundCredits = {
   }
 };
 
+// Utility functions for preloading content
+const preloadImage = async (src) => {
+  if (!src) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(src);
+    img.onerror = reject;
+    img.src = src;
+  });
+};
+
+const preloadVideo = async (src) => {
+  if (!src) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.onloadeddata = () => resolve(src);
+    video.onerror = reject;
+    video.preload = 'auto';
+    video.src = src;
+    video.load();
+  });
+};
+
+const preloadAudio = async (src) => {
+  if (!src) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const audio = document.createElement('audio');
+    audio.onloadeddata = () => resolve(src);
+    audio.onerror = reject;
+    audio.preload = 'auto';
+    audio.src = src;
+    audio.load();
+  });
+};
+
 const AdventCalendar = () => {
   const [openDoors, setOpenDoors] = useState(() => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
   });
+
   const [calendarData, setCalendarData] = useState(() => {
     const saved = localStorage.getItem('calendarData');
     return saved ? JSON.parse(saved) : {};
   });
+
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    const saved = localStorage.getItem('lastUpdate');
+    return saved ? parseInt(saved) : 0;
+  });
+
+  const [preloadedContent, setPreloadedContent] = useState(() => {
+    const saved = localStorage.getItem('preloadedContent');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const [selectedContent, setSelectedContent] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ show: false, type: 'notAvailable' });
@@ -43,24 +93,23 @@ const AdventCalendar = () => {
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
   const [snowfall, setSnowfall] = useState(() => {
     const saved = localStorage.getItem('snowfall');
     return saved !== null ? JSON.parse(saved) : true;
   });
+
   const [doorStates, setDoorStates] = useState(() => {
     const saved = localStorage.getItem('doorStates');
     return saved ? JSON.parse(saved) : {};
   });
+
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [backgroundsLoaded, setBackgroundsLoaded] = useState({
     light: false,
     dark: false
   });
   const [themeLoading, setThemeLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(() => {
-    const saved = localStorage.getItem('lastUpdate');
-    return saved ? parseInt(saved) : 0;
-  });
   
   const settingsRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -71,6 +120,85 @@ const AdventCalendar = () => {
     19, 8, 21, 14
   ], []);
 
+  const preloadDoorContent = useCallback(async (content) => {
+    if (!content || 
+        content.type === 'not available yet' || 
+        preloadedContent[content.day]) {
+      return;
+    }
+
+    try {
+      switch (content.type) {
+        case 'image':
+        case 'gif':
+          if (content.thumbnail) await preloadImage(content.thumbnail);
+          if (content.data) await preloadImage(content.data);
+          break;
+        case 'video':
+          if (content.thumbnail) await preloadImage(content.thumbnail);
+          if (content.data) await preloadVideo(content.data);
+          break;
+        case 'audio':
+          if (content.data) await preloadAudio(content.data);
+          break;
+        case 'puzzle':
+          if (content.data) await preloadImage(content.data);
+          break;
+        case 'text':
+        case 'poll':
+        case 'countdown':
+          // These types don't need preloading
+          break;
+      }
+
+      setPreloadedContent(prev => {
+        const updated = { ...prev, [content.day]: true };
+        localStorage.setItem('preloadedContent', JSON.stringify(updated));
+        return updated;
+      });
+    } catch (error) {
+      console.error('Error preloading content for day', content.day, error);
+    }
+  }, [preloadedContent]);
+
+  const fetchCalendarData = useCallback(async (signal) => {
+    try {
+      const now = Date.now();
+      
+      // Use cached data if it's still valid
+      if (now - lastUpdate < CACHE_DURATION && Object.keys(calendarData).length > 0) {
+        setIsInitialLoad(false);
+        return;
+      }
+
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
+        params: {
+          doorStates: JSON.stringify(doorStates)
+        },
+        signal
+      });
+
+      setCalendarData(response.data);
+      localStorage.setItem('calendarData', JSON.stringify(response.data));
+      localStorage.setItem('lastUpdate', now.toString());
+      setLastUpdate(now);
+
+      // Start preloading content for all available doors
+      Object.values(response.data).forEach(content => {
+        if (content.type !== 'not available yet') {
+          preloadDoorContent(content);
+        }
+      });
+    } catch (error) {
+      if (!axios.isCancel(error)) {
+        console.error('Error fetching data:', error);
+      }
+    } finally {
+      setIsInitialLoad(false);
+    }
+  }, [doorStates, lastUpdate, calendarData, preloadDoorContent]);
+
+  // Initialize theme
   useEffect(() => {
     const savedTheme = localStorage.getItem('darkMode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -90,6 +218,7 @@ const AdventCalendar = () => {
     }, 100);
   }, []);
 
+  // Load and cache background images
   useEffect(() => {
     const checkImage = (url, theme) => {
       const img = new Image();
@@ -107,37 +236,7 @@ const AdventCalendar = () => {
     }
   }, []);
 
-  const fetchCalendarData = useCallback(async (signal) => {
-    try {
-      // Check if we need to update (every 5 minutes)
-      const now = Date.now();
-      const updateInterval = 5 * 60 * 1000; // 5 minutes
-      
-      if (now - lastUpdate < updateInterval && Object.keys(calendarData).length > 0) {
-        setIsInitialLoad(false);
-        return;
-      }
-
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
-        params: {
-          doorStates: JSON.stringify(doorStates)
-        },
-        signal
-      });
-      
-      setCalendarData(response.data);
-      localStorage.setItem('calendarData', JSON.stringify(response.data));
-      localStorage.setItem('lastUpdate', now.toString());
-      setLastUpdate(now);
-    } catch (error) {
-      if (!axios.isCancel(error)) {
-        console.error('Error fetching data:', error);
-      }
-    } finally {
-      setIsInitialLoad(false);
-    }
-  }, [doorStates, lastUpdate, calendarData]);
-
+  // Handle system theme changes
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
@@ -151,6 +250,7 @@ const AdventCalendar = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  // Apply theme changes
   useEffect(() => {
     if (!themeLoading) {
       localStorage.setItem('darkMode', JSON.stringify(darkMode));
@@ -162,6 +262,7 @@ const AdventCalendar = () => {
     }
   }, [darkMode, themeLoading]);
 
+  // Handle door states changes and fetch data
   useEffect(() => {
     localStorage.setItem('doorStates', JSON.stringify(doorStates));
     
@@ -179,14 +280,17 @@ const AdventCalendar = () => {
     };
   }, [doorStates, fetchCalendarData]);
 
+  // Save open doors state
   useEffect(() => {
     localStorage.setItem('openDoors', JSON.stringify(openDoors));
   }, [openDoors]);
 
+  // Save snowfall state
   useEffect(() => {
     localStorage.setItem('snowfall', JSON.stringify(snowfall));
   }, [snowfall]);
 
+  // Handle clicks outside settings
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (settingsRef.current && !settingsRef.current.contains(event.target)) {
@@ -200,7 +304,23 @@ const AdventCalendar = () => {
     };
   }, [settingsRef]);
 
-  // Set up periodic data refresh
+  // Preload upcoming content
+  useEffect(() => {
+    if (!isInitialLoad && Object.keys(calendarData).length > 0) {
+      const today = new Date();
+      const currentDay = today.getDate();
+      
+      // Preload content for the next 3 days
+      for (let i = 0; i <= 3; i++) {
+        const dayToPreload = currentDay + i;
+        if (calendarData[dayToPreload] && !preloadedContent[dayToPreload]) {
+          preloadDoorContent(calendarData[dayToPreload]);
+        }
+      }
+    }
+  }, [isInitialLoad, calendarData, preloadedContent, preloadDoorContent]);
+
+  // Periodic data refresh
   useEffect(() => {
     const interval = setInterval(() => {
       if (abortControllerRef.current) {
@@ -208,7 +328,7 @@ const AdventCalendar = () => {
       }
       abortControllerRef.current = new AbortController();
       fetchCalendarData(abortControllerRef.current.signal);
-    }, 5 * 60 * 1000); // Refresh every 5 minutes
+    }, CACHE_DURATION);
 
     return () => clearInterval(interval);
   }, [fetchCalendarData]);
@@ -224,9 +344,14 @@ const AdventCalendar = () => {
       return;
     }
 
+    // If content isn't preloaded yet, start preloading
+    if (!preloadedContent[day]) {
+      preloadDoorContent(calendarData[day]);
+    }
+
     setOpenDoors(prev => ({ ...prev, [day]: true }));
     setSelectedContent({ day, ...calendarData[day] });
-  }, [calendarData]);
+  }, [calendarData, preloadedContent, preloadDoorContent]);
 
   const handleClosePopup = useCallback(() => {
     setSelectedContent(null);
@@ -290,6 +415,7 @@ const AdventCalendar = () => {
             contentPreview={calendarData[day]}
             darkMode={darkMode}
             doorStates={doorStates}
+            isPreloaded={preloadedContent[day]}
           />
         ))}
       </div>
@@ -403,6 +529,7 @@ const AdventCalendar = () => {
         darkMode={darkMode}
         doorStates={doorStates}
         setDoorStates={setDoorStates}
+        isPreloaded={selectedContent ? preloadedContent[selectedContent.day] : false}
       />
     </div>
   );
