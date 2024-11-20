@@ -8,11 +8,9 @@ import AlertMessage from './AlertMessage';
 import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
 
-// Import background images
 import lightBackground from '../assets/light-background.jpg';
 import darkBackground from '../assets/dark-background.jpg';
 
-// Credits configuration
 const backgroundCredits = {
   light: {
     text: "Unsplash",
@@ -31,7 +29,10 @@ const AdventCalendar = () => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
   });
-  const [calendarData, setCalendarData] = useState({});
+  const [calendarData, setCalendarData] = useState(() => {
+    const saved = localStorage.getItem('calendarData');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [selectedContent, setSelectedContent] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ show: false, type: 'notAvailable' });
@@ -56,6 +57,10 @@ const AdventCalendar = () => {
     dark: false
   });
   const [themeLoading, setThemeLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    const saved = localStorage.getItem('lastUpdate');
+    return saved ? parseInt(saved) : 0;
+  });
   
   const settingsRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -66,13 +71,11 @@ const AdventCalendar = () => {
     19, 8, 21, 14
   ], []);
 
-  // Initialize theme with a loading state
   useEffect(() => {
     const savedTheme = localStorage.getItem('darkMode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialDarkMode = savedTheme !== null ? JSON.parse(savedTheme) : prefersDark;
     
-    // Apply initial theme without transition
     document.documentElement.classList.add('no-transitions');
     if (initialDarkMode) {
       document.documentElement.classList.add('dark');
@@ -80,7 +83,6 @@ const AdventCalendar = () => {
       document.documentElement.classList.remove('dark');
     }
     
-    // Remove no-transitions class after a short delay
     setTimeout(() => {
       document.documentElement.classList.remove('no-transitions');
       setThemeLoading(false);
@@ -88,7 +90,6 @@ const AdventCalendar = () => {
     }, 100);
   }, []);
 
-  // Check if background images are available
   useEffect(() => {
     const checkImage = (url, theme) => {
       const img = new Image();
@@ -108,13 +109,26 @@ const AdventCalendar = () => {
 
   const fetchCalendarData = useCallback(async (signal) => {
     try {
+      // Check if we need to update (every 5 minutes)
+      const now = Date.now();
+      const updateInterval = 5 * 60 * 1000; // 5 minutes
+      
+      if (now - lastUpdate < updateInterval && Object.keys(calendarData).length > 0) {
+        setIsInitialLoad(false);
+        return;
+      }
+
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
         params: {
           doorStates: JSON.stringify(doorStates)
         },
         signal
       });
+      
       setCalendarData(response.data);
+      localStorage.setItem('calendarData', JSON.stringify(response.data));
+      localStorage.setItem('lastUpdate', now.toString());
+      setLastUpdate(now);
     } catch (error) {
       if (!axios.isCancel(error)) {
         console.error('Error fetching data:', error);
@@ -122,7 +136,7 @@ const AdventCalendar = () => {
     } finally {
       setIsInitialLoad(false);
     }
-  }, [doorStates]);
+  }, [doorStates, lastUpdate, calendarData]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -185,6 +199,19 @@ const AdventCalendar = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [settingsRef]);
+
+  // Set up periodic data refresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      fetchCalendarData(abortControllerRef.current.signal);
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [fetchCalendarData]);
 
   const handleDoorOpen = useCallback((day) => {
     if (!calendarData[day]) {

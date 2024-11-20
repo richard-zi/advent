@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useEffect, useMemo } from 'react';
 import { BarChart2, Puzzle } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -10,8 +10,28 @@ const LoadingFallback = ({ darkMode }) => (
   </div>
 );
 
+const CACHE_PREFIX = 'door-preview-';
+
 const MediaPreview = ({ src, alt, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [imageSrc, setImageSrc] = useState(() => {
+    const cached = localStorage.getItem(`${CACHE_PREFIX}${src}`);
+    return cached || null;
+  });
+
+  useEffect(() => {
+    if (src && !imageSrc) {
+      const img = new Image();
+      img.onload = () => {
+        setImageSrc(src);
+        setIsLoading(false);
+        localStorage.setItem(`${CACHE_PREFIX}${src}`, src);
+      };
+      img.src = src;
+    } else if (imageSrc) {
+      setIsLoading(false);
+    }
+  }, [src, imageSrc]);
 
   return (
     <div className="w-full h-full relative">
@@ -20,22 +40,27 @@ const MediaPreview = ({ src, alt, darkMode }) => {
           <LoadingSpinner size="small" darkMode={darkMode} />
         </div>
       )}
-      <img
-        src={src}
-        alt={alt}
-        className={`w-full h-full object-cover absolute inset-0 ${
-          isLoading ? 'opacity-0' : 'opacity-100'
-        } transition-opacity duration-300`}
-        onLoad={() => setIsLoading(false)}
-        loading="lazy"
-      />
+      {imageSrc && (
+        <img
+          src={imageSrc}
+          alt={alt}
+          className={`w-full h-full object-cover absolute inset-0 ${
+            isLoading ? 'opacity-0' : 'opacity-100'
+          } transition-opacity duration-300`}
+        />
+      )}
       <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
     </div>
   );
 };
 
-const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
-  const getPreviewText = (text) => {
+const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode, doorStates }) => {
+  const [previewText, setPreviewText] = useState(() => {
+    const cached = localStorage.getItem(`${CACHE_PREFIX}text-${day}`);
+    return cached || '';
+  });
+
+  const getPreviewText = useMemo(() => (text) => {
     if (!text) return '';
     const plainText = text
       .replace(/#{1,6}\s?/g, '')
@@ -48,7 +73,15 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       .replace(/\n/g, ' ').trim();
 
     return plainText.length > 80 ? plainText.substring(0, 77) + '...' : plainText;
-  };
+  }, []);
+
+  useEffect(() => {
+    if (contentPreview?.type === 'text' && contentPreview?.data) {
+      const text = getPreviewText(contentPreview.data);
+      setPreviewText(text);
+      localStorage.setItem(`${CACHE_PREFIX}text-${day}`, text);
+    }
+  }, [contentPreview, day, getPreviewText]);
 
   const renderMediaIcon = (type) => {
     const iconColor = darkMode ? 'text-gray-300' : 'text-gray-500';
@@ -98,7 +131,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       case 'text':
         return (
           <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
-            {getPreviewText(contentPreview.data)}
+            {previewText}
           </p>
         );
       case 'audio':
