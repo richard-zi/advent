@@ -8,50 +8,24 @@ const ChristmasCountdown = React.lazy(() => import('./ChristmasCountdown'));
 const Poll = React.lazy(() => import('./Poll'));
 const SlidingGame = React.lazy(() => import('./SlidingGame'));
 
-// Cache für geladene Medieninhalte
-const mediaCache = new Map();
-
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [audioData, setAudioData] = useState(null);
   const audioRef = useRef(null);
 
   useEffect(() => {
-    const loadAudio = async () => {
-      if (mediaCache.has(src)) {
-        setAudioData(mediaCache.get(src));
-        setIsLoading(false);
-      } else {
-        try {
-          const response = await fetch(src);
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          mediaCache.set(src, url);
-          setAudioData(url);
-          setIsLoading(false);
-        } catch (error) {
-          console.error('Error loading audio:', error);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadAudio();
-  }, [src]);
-
-  useEffect(() => {
-    if (audioRef.current && audioData) {
+    if (audioRef.current) {
       audioRef.current.addEventListener('loadedmetadata', () => {
         setDuration(audioRef.current.duration);
+        setIsLoading(false);
       });
       audioRef.current.addEventListener('timeupdate', () => {
         setCurrentTime(audioRef.current.currentTime);
       });
     }
-  }, [audioData]);
+  }, []);
 
   const togglePlay = () => {
     if (audioRef.current.paused) {
@@ -85,7 +59,7 @@ const AudioPlayer = ({ src, darkMode }) => {
 
   return (
     <div className={`w-full max-w-2xl mx-auto p-6 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-      <audio ref={audioRef} src={audioData} className="hidden" />
+      <audio ref={audioRef} src={src} className="hidden" />
       
       <div className="flex items-center space-x-4">
         <button
@@ -110,7 +84,7 @@ const AudioPlayer = ({ src, darkMode }) => {
         </div>
         
         <div className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-        {formatTime(duration - currentTime)}
+          {formatTime(duration - currentTime)}
         </div>
       </div>
     </div>
@@ -119,30 +93,6 @@ const AudioPlayer = ({ src, darkMode }) => {
 
 const VideoPlayer = ({ src, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [videoData, setVideoData] = useState(null);
-
-  useEffect(() => {
-    const loadVideo = async () => {
-      if (mediaCache.has(src)) {
-        setVideoData(mediaCache.get(src));
-        setIsLoading(false);
-      } else {
-        try {
-          const response = await fetch(src);
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          mediaCache.set(src, url);
-          setVideoData(url);
-          setIsLoading(false);
-        } catch (error) {
-          console.error('Error loading video:', error);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadVideo();
-  }, [src]);
 
   return (
     <div className="relative w-full max-w-3xl mx-auto">
@@ -152,46 +102,22 @@ const VideoPlayer = ({ src, darkMode }) => {
         </div>
       )}
       <div className="w-full aspect-w-16 aspect-h-9 max-h-[60vh]">
-        {videoData && (
-          <video 
-            controls 
-            className="w-full h-full object-contain bg-black"
-            style={{ maxHeight: '60vh' }}
-            onLoadedData={() => setIsLoading(false)}
-            src={videoData}
-          >
-            Ihr Browser unterstützt das Video-Tag nicht.
-          </video>
-        )}
+        <video 
+          controls 
+          className="w-full h-full object-contain bg-black"
+          style={{ maxHeight: '60vh' }}
+          onLoadedData={() => setIsLoading(false)}
+        >
+          <source src={src} type="video/mp4" />
+          Ihr Browser unterstützt das Video-Tag nicht.
+        </video>
       </div>
-    </div>
+      </div>
   );
 };
 
 const ImageContent = ({ src, alt, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [imageData, setImageData] = useState(null);
-
-  useEffect(() => {
-    const loadImage = async () => {
-      if (mediaCache.has(src)) {
-        setImageData(mediaCache.get(src));
-        setIsLoading(false);
-      } else {
-        try {
-          const response = await fetch(src);
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          mediaCache.set(src, url);
-          setImageData(url);
-        } catch (error) {
-          console.error('Error loading image:', error);
-        }
-      }
-    };
-
-    loadImage();
-  }, [src]);
 
   return (
     <div className="relative flex justify-center">
@@ -200,43 +126,19 @@ const ImageContent = ({ src, alt, darkMode }) => {
           <LoadingSpinner darkMode={darkMode} />
         </div>
       )}
-      {imageData && (
-        <img 
-          src={imageData} 
-          alt={alt} 
-          className={`max-w-full h-auto max-h-[60vh] ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-          onLoad={() => setIsLoading(false)}
-          loading="lazy"
-        />
-      )}
+      <img 
+        src={src} 
+        alt={alt} 
+        className={`max-w-full h-auto max-h-[60vh] ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onLoad={() => setIsLoading(false)}
+        loading="lazy"
+      />
     </div>
   );
 };
 
 const GifPlayer = ({ src, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [gifData, setGifData] = useState(null);
-
-  useEffect(() => {
-    const loadGif = async () => {
-      if (mediaCache.has(src)) {
-        setGifData(mediaCache.get(src));
-        setIsLoading(false);
-      } else {
-        try {
-          const response = await fetch(src);
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          mediaCache.set(src, url);
-          setGifData(url);
-        } catch (error) {
-          console.error('Error loading GIF:', error);
-        }
-      }
-    };
-
-    loadGif();
-  }, [src]);
 
   return (
     <div className="relative w-full max-w-3xl mx-auto">
@@ -246,15 +148,13 @@ const GifPlayer = ({ src, darkMode }) => {
         </div>
       )}
       <div className="w-full flex justify-center">
-        {gifData && (
-          <img 
-            src={gifData} 
-            alt="GIF Animation" 
-            className={`max-w-full h-auto max-h-[60vh] object-contain ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-            onLoad={() => setIsLoading(false)}
-            loading="lazy"
-          />
-        )}
+        <img 
+          src={src} 
+          alt="GIF Animation" 
+          className={`max-w-full h-auto max-h-[60vh] object-contain ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          onLoad={() => setIsLoading(false)}
+          loading="lazy"
+        />
       </div>
     </div>
   );
@@ -268,21 +168,17 @@ const LoadingFallback = ({ darkMode }) => (
 
 const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorStates }) => {
   const [contentLoading, setContentLoading] = useState(true);
-  const [cachedContent, setCachedContent] = useState(null);
 
   useEffect(() => {
-    if (isOpen && content) {
-      if (!cachedContent || cachedContent.day !== content.day) {
-        setCachedContent(content);
-      }
+    if (isOpen) {
+      setContentLoading(true);
       const timer = setTimeout(() => setContentLoading(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, content, cachedContent]);
+  }, [isOpen, content]);
 
-  if (!content && !cachedContent) return null;
+  if (!content) return null;
 
-  const currentContent = cachedContent || content;
   const darkModeClass = darkMode 
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
     : '';
@@ -292,7 +188,7 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
       return <LoadingFallback darkMode={darkMode} />;
     }
 
-    switch (currentContent.type) {
+    switch (content.type) {
       case 'countdown':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
@@ -304,32 +200,32 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
       case 'poll':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
-            <Poll doorNumber={currentContent.day} darkMode={darkMode} />
+            <Poll doorNumber={content.day} darkMode={darkMode} />
           </Suspense>
         );
       case 'text':
         return (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
-            <ReactMarkdown>{currentContent.data}</ReactMarkdown>
+            <ReactMarkdown>{content.data}</ReactMarkdown>
           </div>
         );
       case 'video':
-        return <VideoPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <VideoPlayer src={content.data} darkMode={darkMode} />;
       case 'gif':
-        return <GifPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <GifPlayer src={content.data} darkMode={darkMode} />;
       case 'audio':
-        return <AudioPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <AudioPlayer src={content.data} darkMode={darkMode} />;
       case 'image':
-        return <ImageContent src={currentContent.data} alt="Bild" darkMode={darkMode} />;
+        return <ImageContent src={content.data} alt="Bild" darkMode={darkMode} />;
       case 'puzzle':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
             <div className="flex justify-center">
               <SlidingGame 
-                imageUrl={currentContent.data} 
+                imageUrl={content.data} 
                 doorStates={doorStates} 
                 setDoorStates={setDoorStates} 
-                day={currentContent.day}
+                day={content.day}
               />
             </div>
           </Suspense>
@@ -346,15 +242,15 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
           <h2 className={`text-4xl sm:text-5xl font-bold ${
             darkMode ? 'text-white' : 'text-gray-800'
           }`}>
-            Türchen {currentContent.day}
+            Türchen {content.day}
           </h2>
         </div>
 
         <div>{renderContent()}</div>
 
-        {currentContent.text && !contentLoading && (
+        {content.text && !contentLoading && (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none text-center ${darkModeClass}`}>
-            <ReactMarkdown>{currentContent.text}</ReactMarkdown>
+            <ReactMarkdown>{content.text}</ReactMarkdown>
           </div>
         )}
       </div>

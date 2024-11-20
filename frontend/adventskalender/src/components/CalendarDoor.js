@@ -1,11 +1,8 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState } from 'react';
 import { BarChart2, Puzzle } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 const SmallCountdown = React.lazy(() => import('./SmallCountdown'));
-
-// Cache für geladene Medieninhalte
-const contentCache = new Map();
 
 const LoadingFallback = ({ darkMode }) => (
   <div className="flex justify-center items-center p-2">
@@ -15,27 +12,6 @@ const LoadingFallback = ({ darkMode }) => (
 
 const MediaPreview = ({ src, alt, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [imageSrc, setImageSrc] = useState(null);
-
-  useEffect(() => {
-    if (src) {
-      if (contentCache.has(src)) {
-        setImageSrc(contentCache.get(src));
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-        const img = new Image();
-        img.onload = () => {
-          contentCache.set(src, src);
-          setImageSrc(src);
-          setIsLoading(false);
-        };
-        img.src = src;
-      }
-    }
-  }, [src]);
-
-  if (!imageSrc && !isLoading) return null;
 
   return (
     <div className="w-full h-full relative">
@@ -44,29 +20,21 @@ const MediaPreview = ({ src, alt, darkMode }) => {
           <LoadingSpinner size="small" darkMode={darkMode} />
         </div>
       )}
-      {imageSrc && (
-        <img
-          src={imageSrc}
-          alt={alt}
-          className={`w-full h-full object-cover absolute inset-0 ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          } transition-opacity duration-300`}
-        />
-      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-full object-cover absolute inset-0 ${
+          isLoading ? 'opacity-0' : 'opacity-100'
+        } transition-opacity duration-300`}
+        onLoad={() => setIsLoading(false)}
+        loading="lazy"
+      />
       <div className={`absolute inset-0 ${darkMode ? 'bg-black' : 'bg-white'} opacity-10`}></div>
     </div>
   );
 };
 
 const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
-  const [cachedPreview, setCachedPreview] = useState(null);
-
-  useEffect(() => {
-    if (contentPreview && !cachedPreview) {
-      setCachedPreview(contentPreview);
-    }
-  }, [contentPreview, cachedPreview]);
-
   const getPreviewText = (text) => {
     if (!text) return '';
     const plainText = text
@@ -99,10 +67,9 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
   };
 
   const renderContent = () => {
-    const content = cachedPreview || contentPreview;
-    if (!content) return null;
+    if (!contentPreview) return null;
 
-    if (content.type === 'countdown') {
+    if (contentPreview.type === 'countdown') {
       return (
         <div className="flex-1 flex items-center justify-center p-2">
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
@@ -112,7 +79,7 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       );
     }
 
-    if (content.type === 'poll') {
+    if (contentPreview.type === 'poll') {
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-2">
           <BarChart2 className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${
@@ -127,11 +94,11 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       );
     }
 
-    switch (content.type) {
+    switch (contentPreview.type) {
       case 'text':
         return (
           <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
-            {getPreviewText(content.data)}
+            {getPreviewText(contentPreview.data)}
           </p>
         );
       case 'audio':
@@ -141,16 +108,16 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
           </div>
         );
       case 'puzzle':
-        if (!content.isSolved) {
+        if (!contentPreview.isSolved) {
           return (
             <div className="w-full h-full flex items-center justify-center">
               {renderMediaIcon('puzzle')}
             </div>
           );
         }
-        return content.thumbnail ? (
+        return contentPreview.thumbnail ? (
           <MediaPreview
-            src={content.data}
+            src={contentPreview.data}
             alt={`Completed puzzle for door ${day}`}
             darkMode={darkMode}
           />
@@ -158,9 +125,9 @@ const CalendarDoor = ({ day, isOpen, onOpen, contentPreview, darkMode }) => {
       case 'video':
       case 'image':
       case 'gif':
-        return content.thumbnail ? (
+        return contentPreview.thumbnail ? (
           <MediaPreview
-            src={content.thumbnail}
+            src={contentPreview.thumbnail}
             alt={`Vorschau für Türchen ${day}`}
             darkMode={darkMode}
           />
