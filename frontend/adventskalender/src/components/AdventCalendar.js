@@ -126,7 +126,7 @@ const AdventCalendar = () => {
         preloadedContent[content.day]) {
       return;
     }
-
+  
     try {
       switch (content.type) {
         case 'image':
@@ -149,8 +149,12 @@ const AdventCalendar = () => {
         case 'countdown':
           // These types don't need preloading
           break;
+        default:
+          // Handle any unknown content types
+          console.warn(`Unknown content type for preloading: ${content.type}`);
+          break;
       }
-
+  
       setPreloadedContent(prev => {
         const updated = { ...prev, [content.day]: true };
         localStorage.setItem('preloadedContent', JSON.stringify(updated));
