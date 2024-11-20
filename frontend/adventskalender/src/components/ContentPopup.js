@@ -10,10 +10,7 @@ const SlidingGame = React.lazy(() => import('./SlidingGame'));
 
 const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(() => {
-    const saved = localStorage.getItem(`audio-time-${src}`);
-    return saved ? parseFloat(saved) : 0;
-  });
+  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const audioRef = useRef(null);
@@ -23,26 +20,12 @@ const AudioPlayer = ({ src, darkMode }) => {
       audioRef.current.addEventListener('loadedmetadata', () => {
         setDuration(audioRef.current.duration);
         setIsLoading(false);
-        // Set initial time from localStorage
-        if (currentTime) {
-          audioRef.current.currentTime = currentTime;
-        }
       });
-
       audioRef.current.addEventListener('timeupdate', () => {
-        const time = audioRef.current.currentTime;
-        setCurrentTime(time);
-        localStorage.setItem(`audio-time-${src}`, time.toString());
+        setCurrentTime(audioRef.current.currentTime);
       });
-
-      // Cleanup
-      return () => {
-        if (audioRef.current) {
-          localStorage.setItem(`audio-time-${src}`, audioRef.current.currentTime.toString());
-        }
-      };
     }
-  }, [src, currentTime]);
+  }, []);
 
   const togglePlay = () => {
     if (audioRef.current.paused) {
@@ -58,7 +41,6 @@ const AudioPlayer = ({ src, darkMode }) => {
     const newTime = e.target.value;
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
-    localStorage.setItem(`audio-time-${src}`, newTime.toString());
   };
 
   const formatTime = (seconds) => {
@@ -111,36 +93,6 @@ const AudioPlayer = ({ src, darkMode }) => {
 
 const VideoPlayer = ({ src, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const videoRef = useRef(null);
-  
-  useEffect(() => {
-    const savedTime = localStorage.getItem(`video-time-${src}`);
-    if (savedTime && videoRef.current) {
-      videoRef.current.currentTime = parseFloat(savedTime);
-    }
-
-    const handleTimeUpdate = () => {
-      if (videoRef.current) {
-        localStorage.setItem(`video-time-${src}`, videoRef.current.currentTime.toString());
-      }
-    };
-
-    const handleEnded = () => {
-      localStorage.removeItem(`video-time-${src}`);
-    };
-
-    if (videoRef.current) {
-      videoRef.current.addEventListener('timeupdate', handleTimeUpdate);
-      videoRef.current.addEventListener('ended', handleEnded);
-    }
-
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('timeupdate', handleTimeUpdate);
-        videoRef.current.removeEventListener('ended', handleEnded);
-      }
-    };
-  }, [src]);
 
   return (
     <div className="relative w-full max-w-3xl mx-auto">
@@ -151,7 +103,6 @@ const VideoPlayer = ({ src, darkMode }) => {
       )}
       <div className="w-full aspect-w-16 aspect-h-9 max-h-[60vh]">
         <video 
-          ref={videoRef}
           controls 
           className="w-full h-full object-contain bg-black"
           style={{ maxHeight: '60vh' }}
@@ -161,19 +112,12 @@ const VideoPlayer = ({ src, darkMode }) => {
           Ihr Browser unterstützt das Video-Tag nicht.
         </video>
       </div>
-    </div>
+      </div>
   );
 };
 
 const ImageContent = ({ src, alt, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const imgRef = useRef(null);
-
-  useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
-      setIsLoading(false);
-    }
-  }, []);
 
   return (
     <div className="relative flex justify-center">
@@ -183,7 +127,6 @@ const ImageContent = ({ src, alt, darkMode }) => {
         </div>
       )}
       <img 
-        ref={imgRef}
         src={src} 
         alt={alt} 
         className={`max-w-full h-auto max-h-[60vh] ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
@@ -196,13 +139,6 @@ const ImageContent = ({ src, alt, darkMode }) => {
 
 const GifPlayer = ({ src, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const imgRef = useRef(null);
-
-  useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
-      setIsLoading(false);
-    }
-  }, []);
 
   return (
     <div className="relative w-full max-w-3xl mx-auto">
@@ -213,7 +149,6 @@ const GifPlayer = ({ src, darkMode }) => {
       )}
       <div className="w-full flex justify-center">
         <img 
-          ref={imgRef}
           src={src} 
           alt="GIF Animation" 
           className={`max-w-full h-auto max-h-[60vh] object-contain ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
@@ -233,27 +168,16 @@ const LoadingFallback = ({ darkMode }) => (
 
 const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorStates }) => {
   const [contentLoading, setContentLoading] = useState(true);
-  const [cachedContent, setCachedContent] = useState(() => {
-    const saved = localStorage.getItem(`popup-content-${content?.day}`);
-    return saved ? JSON.parse(saved) : null;
-  });
 
   useEffect(() => {
-    if (isOpen && content) {
+    if (isOpen) {
       setContentLoading(true);
-      const timer = setTimeout(() => {
-        setContentLoading(false);
-        // Cache the content
-        localStorage.setItem(`popup-content-${content.day}`, JSON.stringify(content));
-        setCachedContent(content);
-      }, 500);
+      const timer = setTimeout(() => setContentLoading(false), 500);
       return () => clearTimeout(timer);
     }
   }, [isOpen, content]);
 
-  if (!content && !cachedContent) return null;
-
-  const currentContent = cachedContent || content;
+  if (!content) return null;
 
   const darkModeClass = darkMode 
     ? 'prose-invert prose-headings:text-white prose-p:text-white prose-strong:text-white prose-em:text-white prose-ul:text-white prose-ol:text-white prose-li:text-white prose-a:text-blue-300'
@@ -264,7 +188,7 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
       return <LoadingFallback darkMode={darkMode} />;
     }
 
-    switch (currentContent.type) {
+    switch (content.type) {
       case 'countdown':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
@@ -276,32 +200,32 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
       case 'poll':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
-            <Poll doorNumber={currentContent.day} darkMode={darkMode} />
+            <Poll doorNumber={content.day} darkMode={darkMode} />
           </Suspense>
         );
       case 'text':
         return (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none ${darkModeClass}`}>
-            <ReactMarkdown>{currentContent.data}</ReactMarkdown>
+            <ReactMarkdown>{content.data}</ReactMarkdown>
           </div>
         );
       case 'video':
-        return <VideoPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <VideoPlayer src={content.data} darkMode={darkMode} />;
       case 'gif':
-        return <GifPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <GifPlayer src={content.data} darkMode={darkMode} />;
       case 'audio':
-        return <AudioPlayer src={currentContent.data} darkMode={darkMode} />;
+        return <AudioPlayer src={content.data} darkMode={darkMode} />;
       case 'image':
-        return <ImageContent src={currentContent.data} alt="Bild" darkMode={darkMode} />;
+        return <ImageContent src={content.data} alt="Bild" darkMode={darkMode} />;
       case 'puzzle':
         return (
           <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
             <div className="flex justify-center">
               <SlidingGame 
-                imageUrl={currentContent.data} 
+                imageUrl={content.data} 
                 doorStates={doorStates} 
                 setDoorStates={setDoorStates} 
-                day={currentContent.day}
+                day={content.day}
               />
             </div>
           </Suspense>
@@ -318,15 +242,15 @@ const ContentPopup = ({ isOpen, onClose, content, darkMode, doorStates, setDoorS
           <h2 className={`text-4xl sm:text-5xl font-bold ${
             darkMode ? 'text-white' : 'text-gray-800'
           }`}>
-            Türchen {currentContent.day}
+            Türchen {content.day}
           </h2>
         </div>
 
         <div>{renderContent()}</div>
 
-        {currentContent.text && !contentLoading && (
+        {content.text && !contentLoading && (
           <div className={`prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none text-center ${darkModeClass}`}>
-            <ReactMarkdown>{currentContent.text}</ReactMarkdown>
+            <ReactMarkdown>{content.text}</ReactMarkdown>
           </div>
         )}
       </div>
