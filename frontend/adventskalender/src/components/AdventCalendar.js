@@ -31,7 +31,10 @@ const AdventCalendar = () => {
     const saved = localStorage.getItem('openDoors');
     return saved ? JSON.parse(saved) : {};
   });
-  const [calendarData, setCalendarData] = useState({});
+  const [calendarData, setCalendarData] = useState(() => {
+    const saved = localStorage.getItem('calendarData');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [selectedContent, setSelectedContent] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ show: false, type: 'notAvailable' });
@@ -56,6 +59,10 @@ const AdventCalendar = () => {
     dark: false
   });
   const [themeLoading, setThemeLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    const saved = localStorage.getItem('lastUpdate');
+    return saved ? parseInt(saved) : 0;
+  });
   
   const settingsRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -108,13 +115,24 @@ const AdventCalendar = () => {
 
   const fetchCalendarData = useCallback(async (signal) => {
     try {
+      const now = Date.now();
+      // Only update every 5 minutes
+      if (now - lastUpdate < 5 * 60 * 1000 && Object.keys(calendarData).length > 0) {
+        setIsInitialLoad(false);
+        return;
+      }
+
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/`, {
         params: {
           doorStates: JSON.stringify(doorStates)
         },
         signal
       });
+      
       setCalendarData(response.data);
+      localStorage.setItem('calendarData', JSON.stringify(response.data));
+      localStorage.setItem('lastUpdate', now.toString());
+      setLastUpdate(now);
     } catch (error) {
       if (!axios.isCancel(error)) {
         console.error('Error fetching data:', error);
@@ -122,7 +140,7 @@ const AdventCalendar = () => {
     } finally {
       setIsInitialLoad(false);
     }
-  }, [doorStates]);
+  }, [doorStates, lastUpdate, calendarData]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -197,7 +215,11 @@ const AdventCalendar = () => {
       return;
     }
 
-    setOpenDoors(prev => ({ ...prev, [day]: true }));
+    setOpenDoors(prev => {
+      const newState = { ...prev, [day]: true };
+      localStorage.setItem('openDoors', JSON.stringify(newState));
+      return newState;
+    });
     setSelectedContent({ day, ...calendarData[day] });
   }, [calendarData]);
 

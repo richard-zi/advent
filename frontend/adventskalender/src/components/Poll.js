@@ -1,41 +1,84 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Users } from 'lucide-react';
 
 const Poll = ({ doorNumber, darkMode }) => {
-  const [pollData, setPollData] = useState(null);
-  const [votes, setVotes] = useState({});
-  const [userVote, setUserVote] = useState(null);
+  const [pollData, setPollData] = useState(() => {
+    const saved = localStorage.getItem(`poll-data-${doorNumber}`);
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [votes, setVotes] = useState(() => {
+    const saved = localStorage.getItem(`poll-votes-${doorNumber}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [userVote, setUserVote] = useState(() => {
+    const saved = localStorage.getItem(`poll-user-vote-${doorNumber}`);
+    return saved ? JSON.parse(saved) : null;
+  });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    const saved = localStorage.getItem(`poll-last-update-${doorNumber}`);
+    return saved ? parseInt(saved) : 0;
+  });
 
-  const getUserId = () => {
+  const getUserId = useCallback(() => {
     let userId = localStorage.getItem('pollUserId');
     if (!userId) {
       userId = 'user_' + Math.random().toString(36).substr(2, 9);
       localStorage.setItem('pollUserId', userId);
     }
     return userId;
-  };
+  }, []);
 
   const fetchPollData = useCallback(async () => {
     try {
+      const now = Date.now();
+      // Only update every 5 minutes unless there's no data
+      if (pollData && now - lastUpdate < 5 * 60 * 1000) {
+        setLoading(false);
+        return;
+      }
+
       const userId = getUserId();
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/poll/${doorNumber}?userId=${userId}`
       );
+      
       setPollData(response.data.pollData);
       setVotes(response.data.votes);
       setUserVote(response.data.userVote);
+      
+      // Cache the poll data
+      localStorage.setItem(`poll-data-${doorNumber}`, JSON.stringify(response.data.pollData));
+      localStorage.setItem(`poll-votes-${doorNumber}`, JSON.stringify(response.data.votes));
+      localStorage.setItem(`poll-user-vote-${doorNumber}`, JSON.stringify(response.data.userVote));
+      localStorage.setItem(`poll-last-update-${doorNumber}`, now.toString());
+      setLastUpdate(now);
     } catch (error) {
       setError('Fehler beim Laden der Umfrage');
+      // Use cached data if available
+      const cachedData = localStorage.getItem(`poll-data-${doorNumber}`);
+      const cachedVotes = localStorage.getItem(`poll-votes-${doorNumber}`);
+      const cachedUserVote = localStorage.getItem(`poll-user-vote-${doorNumber}`);
+      
+      if (cachedData && cachedVotes && cachedUserVote) {
+        setPollData(JSON.parse(cachedData));
+        setVotes(JSON.parse(cachedVotes));
+        setUserVote(JSON.parse(cachedUserVote));
+      }
     } finally {
       setLoading(false);
     }
-  }, [doorNumber]);
+  }, [doorNumber, lastUpdate, pollData, getUserId]);
 
   useEffect(() => {
     fetchPollData();
+    
+    // Set up periodic refresh
+    const intervalId = setInterval(fetchPollData, 5 * 60 * 1000); // Refresh every 5 minutes
+    
+    return () => clearInterval(intervalId);
   }, [fetchPollData]);
 
   const handleVote = async (option) => {
@@ -52,6 +95,11 @@ const Poll = ({ doorNumber, darkMode }) => {
       if (response.data.success) {
         setVotes(response.data.results);
         setUserVote(response.data.userVote);
+        
+        // Update cache
+        localStorage.setItem(`poll-votes-${doorNumber}`, JSON.stringify(response.data.results));
+        localStorage.setItem(`poll-user-vote-${doorNumber}`, JSON.stringify(response.data.userVote));
+        localStorage.setItem(`poll-last-update-${doorNumber}`, Date.now().toString());
       } else {
         setError(response.data.message);
       }
@@ -60,14 +108,14 @@ const Poll = ({ doorNumber, darkMode }) => {
     }
   };
 
-  const calculatePercentage = (votes, option) => {
+  const calculatePercentage = useCallback((votes, option) => {
     const totalVotes = Object.values(votes).reduce((a, b) => a + b, 0);
     return totalVotes === 0 ? 0 : Math.round((votes[option] || 0) / totalVotes * 100);
-  };
+  }, []);
 
-  const getTotalVotes = () => {
+  const getTotalVotes = useCallback(() => {
     return Object.values(votes).reduce((a, b) => a + b, 0);
-  };
+  }, [votes]);
 
   if (loading) {
     return (
@@ -152,6 +200,13 @@ const Poll = ({ doorNumber, darkMode }) => {
         <Users size={20} />
         <span>Gesamt: {totalVotes} {totalVotes === 1 ? 'Stimme' : 'Stimmen'}</span>
       </div>
+
+      {error && (
+        <div className="mt-4 text-red-500 text-sm flex items-center gap-2">
+          <AlertTriangle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 };
