@@ -17,13 +17,13 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const backgroundCredits = {
   light: {
     text: "Unsplash",
-    link: "https://your-light-image-source.com",
-    photographer: "Photographer Name"
+    link: "https://unsplash.com/de/@anniespratt?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash",
+    photographer: "Annie Spratt"
   },
   dark: {
     text: "Unsplash",
-    link: "https://your-dark-image-source.com",
-    photographer: "Photographer Name"
+    link: "https://unsplash.com/de/@anniespratt?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash",
+    photographer: "Annie Spratt"
   }
 };
 
