@@ -4,16 +4,27 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    user: "node"
     ports:
       - "5000:5000"
     volumes:
-      - ./backend/media:/app/media
-      - ./backend/thumbnails:/app/thumbnails
-      - ./backend/messages:/app/messages
-      - ./backend/polls:/app/polls
-      - ./backend/assets:/app/assets
-      - ./backend/nginx:/etc/nginx/conf.d
+      - type: bind
+        source: ./backend/media
+        target: /app/media
+      - type: bind
+        source: ./backend/thumbnails
+        target: /app/thumbnails
+      - type: bind
+        source: ./backend/messages
+        target: /app/messages
+      - type: bind
+        source: ./backend/polls
+        target: /app/polls
+      - type: bind
+        source: ./backend/assets
+        target: /app/assets
+      - type: bind
+        source: ./backend/nginx
+        target: /etc/nginx/conf.d
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
@@ -33,11 +44,6 @@ services:
       - LOG_LEVEL=${LOG_LEVEL}
       - GITHUB_REPO=${GITHUB_REPO}
       - GITHUB_BRANCH=${GITHUB_BRANCH}
-      - MEDIA_PATH=${MEDIA_PATH}
-      - THUMBNAILS_PATH=${THUMBNAILS_PATH}
-      - MESSAGES_PATH=${MESSAGES_PATH}
-      - POLLS_PATH=${POLLS_PATH}
-      - ASSETS_PATH=${ASSETS_PATH}
     networks:
       - advent_network
 
@@ -49,7 +55,9 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./frontend/nginx:/etc/nginx/conf.d
+      - type: bind
+        source: ./frontend/nginx
+        target: /etc/nginx/conf.d
     environment:
       - REACT_APP_API_URL=${REACT_APP_API_URL}
       - ALLOWED_IPS=${ALLOWED_IPS}
