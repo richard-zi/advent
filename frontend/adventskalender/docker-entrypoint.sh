@@ -1,22 +1,32 @@
+# frontend/adventskalender/docker-entrypoint.sh
 #!/bin/sh
+set -e
+
+# Create nginx config directory if it doesn't exist
+mkdir -p /etc/nginx/conf.d
 
 # Generate allowed IPs configuration
 echo "Generating IP allowlist..."
-IFS=',' read -ra IPS <<< "$ALLOWED_IPS"
-> /etc/nginx/allowed_ips.conf
-for ip in "${IPS[@]}"; do
-    echo "allow $ip;" >> /etc/nginx/allowed_ips.conf
-done
+echo "" > /etc/nginx/conf.d/allowed_ips.conf
+if [ -n "$ALLOWED_IPS" ]; then
+    for ip in $(echo $ALLOWED_IPS | tr ',' ' '); do
+        echo "allow $ip;" >> /etc/nginx/conf.d/allowed_ips.conf
+    done
+else
+    echo "allow all;" >> /etc/nginx/conf.d/allowed_ips.conf
+fi
 
 # Check for updates from GitHub
 if [ -n "$GITHUB_REPO" ] && [ -n "$GITHUB_BRANCH" ]; then
     echo "Checking for updates from GitHub..."
     if [ ! -d .git ]; then
         git init
-        git remote add origin $GITHUB_REPO
+        git remote add origin "$GITHUB_REPO"
     fi
-    git fetch origin $GITHUB_BRANCH
-    git reset --hard origin/$GITHUB_BRANCH
+    git fetch origin "$GITHUB_BRANCH"
+    git reset --hard "origin/$GITHUB_BRANCH"
+    
+    # Rebuild frontend if source has changed
     npm install
     npm run build
     cp -r build/* /usr/share/nginx/html/
