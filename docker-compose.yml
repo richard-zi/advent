@@ -38,10 +38,10 @@ services:
     image: nginx:alpine
     container_name: nginx-backend
     volumes:
-      - ./backend/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/adventskalender/build:/usr/share/nginx/html:ro
     ports:
-      - "8080:8080"  # Geändert von 80 auf 8080
+      - "9001:9001"  # Geändert auf Port 9001
     depends_on:
       - backend
     restart: unless-stopped
@@ -50,11 +50,10 @@ services:
     image: nginx:alpine
     container_name: nginx-frontend
     volumes:
-      - ./frontend/adventskalender/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./frontend/adventskalender/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend/adventskalender/build:/usr/share/nginx/html:ro
     ports:
-      - "8081:8081"  # Geändert von 80 auf 8081
+      - "9002:9002"  # Geändert auf Port 9002
     depends_on:
       - frontend
     restart: unless-stopped
