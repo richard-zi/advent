@@ -18,17 +18,21 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
+# Install dos2unix
+RUN apk add --no-cache dos2unix
+
 # Create nginx config directory
 RUN mkdir -p /etc/nginx/conf.d
 
 # Copy built assets from build stage
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Add startup script
+# Copy and prepare entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN dos2unix /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 80
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

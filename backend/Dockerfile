@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Install git and other dependencies
-RUN apk add --no-cache git ffmpeg
+RUN apk add --no-cache git ffmpeg dos2unix
 
 WORKDIR /app
 
@@ -12,19 +12,17 @@ COPY package*.json ./
 RUN npm install
 
 # Create necessary directories
-RUN mkdir -p media thumbnails messages polls assets
-
-# Create nginx config directory
-RUN mkdir -p /etc/nginx/conf.d
+RUN mkdir -p media thumbnails messages polls assets /etc/nginx/conf.d
 
 # Copy source code
 COPY . .
 
-# Add startup script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Convert line endings and set permissions
+RUN dos2unix docker-entrypoint.sh && \
+    chmod +x docker-entrypoint.sh && \
+    mv docker-entrypoint.sh /usr/local/bin/
 
 EXPOSE 5000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["npm", "start"]

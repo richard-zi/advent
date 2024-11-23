@@ -7,9 +7,9 @@ mkdir -p /etc/nginx/conf.d
 
 # Generate allowed IPs configuration
 echo "Generating IP allowlist..."
-echo "" > /etc/nginx/conf.d/allowed_ips.conf
+: > /etc/nginx/conf.d/allowed_ips.conf
 if [ -n "$ALLOWED_IPS" ]; then
-    for ip in $(echo $ALLOWED_IPS | tr ',' ' '); do
+    echo "$ALLOWED_IPS" | tr ',' '\n' | while read -r ip; do
         echo "allow $ip;" >> /etc/nginx/conf.d/allowed_ips.conf
     done
 else

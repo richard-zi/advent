@@ -7,9 +7,9 @@ mkdir -p /etc/nginx/conf.d
 
 # Generate allowed IPs configuration
 echo "Generating IP allowlist..."
-echo "" > /etc/nginx/conf.d/allowed_ips.conf
+: > /etc/nginx/conf.d/allowed_ips.conf
 if [ -n "$ALLOWED_IPS" ]; then
-    for ip in $(echo $ALLOWED_IPS | tr ',' ' '); do
+    echo "$ALLOWED_IPS" | tr ',' '\n' | while read -r ip; do
         echo "allow $ip;" >> /etc/nginx/conf.d/allowed_ips.conf
     done
 else
@@ -25,8 +25,6 @@ if [ -n "$GITHUB_REPO" ] && [ -n "$GITHUB_BRANCH" ]; then
     fi
     git fetch origin "$GITHUB_BRANCH"
     git reset --hard "origin/$GITHUB_BRANCH"
-    
-    # Rebuild frontend if source has changed
     npm install
     npm run build
     cp -r build/* /usr/share/nginx/html/
