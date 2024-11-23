@@ -5,19 +5,26 @@ RUN apk add --no-cache git ffmpeg
 
 WORKDIR /app
 
+# Create necessary directories and set permissions
+RUN mkdir -p media thumbnails messages polls assets /etc/nginx/conf.d && \
+    chown -R node:node /app && \
+    chmod 755 /app && \
+    chown -R node:node /etc/nginx/conf.d
+
+# Switch to non-root user
+USER node
+
 # Copy package files
-COPY package*.json ./
+COPY --chown=node:node package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Create necessary directories
-RUN mkdir -p media thumbnails messages polls assets /etc/nginx/conf.d
-
 # Copy source code
-COPY . .
+COPY --chown=node:node . .
 
-# Fix script permissions and format
+# Create entrypoint script
+USER root
 RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
     echo 'set -e' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'mkdir -p /etc/nginx/conf.d' >> /usr/local/bin/docker-entrypoint.sh && \
@@ -30,13 +37,10 @@ RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
     echo 'else' >> /usr/local/bin/docker-entrypoint.sh && \
     echo '    echo "allow all;" >> /etc/nginx/conf.d/allowed_ips.conf' >> /usr/local/bin/docker-entrypoint.sh && \
     echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'mkdir -p "${MEDIA_PATH:-/app/media}" \\' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo '    "${THUMBNAILS_PATH:-/app/thumbnails}" \\' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo '    "${MESSAGES_PATH:-/app/messages}" \\' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo '    "${POLLS_PATH:-/app/polls}" \\' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo '    "${ASSETS_PATH:-/app/assets}"' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
-    chmod +x /usr/local/bin/docker-entrypoint.sh
+    echo 'chown -R node:node /app/media /app/thumbnails /app/messages /app/polls /app/assets' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'exec su-exec node "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    apk add --no-cache su-exec
 
 EXPOSE 5000
 
