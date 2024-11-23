@@ -18,18 +18,26 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Install dos2unix
-RUN apk add --no-cache dos2unix
-
 # Create nginx config directory
 RUN mkdir -p /etc/nginx/conf.d
 
 # Copy built assets from build stage
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy and prepare entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN dos2unix /usr/local/bin/docker-entrypoint.sh && \
+# Create entrypoint script
+RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
+    echo 'set -e' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'mkdir -p /etc/nginx/conf.d' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'echo "Generating IP allowlist..."' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo ': > /etc/nginx/conf.d/allowed_ips.conf' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'if [ -n "$ALLOWED_IPS" ]; then' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo '    echo "$ALLOWED_IPS" | tr "," "\n" | while read -r ip; do' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo '        echo "allow $ip;" >> /etc/nginx/conf.d/allowed_ips.conf' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo '    done' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'else' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo '    echo "allow all;" >> /etc/nginx/conf.d/allowed_ips.conf' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 80
