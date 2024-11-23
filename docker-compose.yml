@@ -1,84 +1,48 @@
-version: "3.6"
+version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: adventskalender-frontend:latest
-    networks:
-      - t2_proxy
-    depends_on:
-      - backend
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.advent-frontend.rule: "Host(`${DOMAIN}`)"
-      traefik.http.routers.advent-frontend.entrypoints: "web"
-      traefik.http.routers.advent-frontend.middlewares: "bwi-only@file"
-      traefik.http.services.advent-frontend.loadbalancer.server.port: "3000"
-      traefik.http.routers.advent-frontend-ssl.rule: "Host(`${DOMAIN}`)"
-      traefik.http.routers.advent-frontend-ssl.entrypoints: "websecure"
-      traefik.http.routers.advent-frontend-ssl.middlewares: "bwi-only@file"
-      traefik.http.routers.advent-frontend-ssl.tls: "true"
-    environment:
-      - REACT_APP_API_URL=https://${DOMAIN}/api
-    restart: unless-stopped
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: >
-      sh -c "cd /app &&
-             git pull origin main &&
-             npm install &&
-             npm run start"
-
   backend:
-    build:
+    build: 
       context: ./backend
       dockerfile: Dockerfile
-    image: adventskalender-backend:latest
-    networks:
-      - t2_proxy
-    labels:
-      traefik.enable: "true"
-      traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes: "/api"
-      traefik.http.routers.advent-backend.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
-      traefik.http.routers.advent-backend.middlewares: "strip-api-prefix@docker, bwi-only@file"
-      traefik.http.routers.advent-backend.entrypoints: "web"
-      traefik.http.services.advent-backend.loadbalancer.server.port: "5000"
-      traefik.http.routers.advent-backend-ssl.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
-      traefik.http.routers.advent-backend-ssl.middlewares: "strip-api-prefix@docker, bwi-only@file"
-      traefik.http.routers.advent-backend-ssl.entrypoints: "websecure"
-      traefik.http.routers.advent-backend-ssl.tls: "true"
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/thumbnails:/app/thumbnails
+      - ./backend/messages:/app/messages
+      - ./backend/polls:/app/polls
+      - ./backend/assets:/app/assets
     environment:
       - NODE_ENV=production
+      - PORT=5000
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - SITE_PASSWORD=${SITE_PASSWORD}
-      - ALLOWED_ORIGINS=https://${DOMAIN}
-      - MAX_FILE_SIZE=52428800
-      - THUMBNAIL_WIDTH=500
-      - THUMBNAIL_QUALITY=85
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-      - backend_media:/app/media
-      - backend_thumbnails:/app/thumbnails
-      - backend_messages:/app/messages
+      - ADVENT_START_DATE=${ADVENT_START_DATE}
+      - ALLOWED_IPS=${ALLOWED_IPS}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_BRANCH=${GITHUB_BRANCH}
+    networks:
+      - advent_network
+
+  frontend:
+    build:
+      context: ./frontend/adventskalender
+      dockerfile: Dockerfile
     restart: unless-stopped
-    command: >
-      sh -c "cd /app &&
-             git pull origin main &&
-             npm install &&
-             node server.js"
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:5000
+      - ALLOWED_IPS=${ALLOWED_IPS}
+    depends_on:
+      - backend
+    networks:
+      - advent_network
 
 networks:
-  t2_proxy:
-    external:
-      name: t2_proxy
-
-volumes:
-  backend_media:
-  backend_thumbnails:
-  backend_messages:
+  advent_network:
+    driver: bridge
