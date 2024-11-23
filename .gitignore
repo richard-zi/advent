@@ -14,7 +14,6 @@ adventskalender/backend/helper.js
 
 # production
 frontend/adventskalender/build
-
 frontend/adventskalender/.env
 backend/.env
 
@@ -28,5 +27,3 @@ adventskalender/.env.production.local
 adventskalender/npm-debug.log*
 adventskalender/yarn-debug.log*
 adventskalender/yarn-error.log*
-backend/.env
-frontend/adventskalender/.env
