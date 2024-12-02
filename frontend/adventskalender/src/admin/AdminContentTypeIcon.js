@@ -1,4 +1,4 @@
-import { Image, FileText, Film, Music, BarChart2, Clock, Puzzle } from 'lucide-react';
+import { Image, FileText, Film, Music, BarChart2, Clock, Puzzle, Video } from 'lucide-react';
 
 const AdminContentTypeIcon = ({ type }) => {
   const iconProps = { size: 16, className: "text-gray-500" };
@@ -9,7 +9,7 @@ const AdminContentTypeIcon = ({ type }) => {
     case 'text':
       return <FileText {...iconProps} />;
     case 'video':
-      return <Film {...iconProps} />;
+      return <Video {...iconProps} />;
     case 'audio':
       return <Music {...iconProps} />;
     case 'poll':
@@ -18,6 +18,8 @@ const AdminContentTypeIcon = ({ type }) => {
       return <Clock {...iconProps} />;
     case 'puzzle':
       return <Puzzle {...iconProps} />;
+    case 'iframe':
+      return <Film {...iconProps} />;
     default:
       return null;
   }

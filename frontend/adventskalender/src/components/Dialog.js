@@ -13,8 +13,9 @@ const Dialog = ({ isOpen, onClose, children, darkMode }) => {
       <div 
         className={`
           ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}
-          rounded-2xl max-w-full sm:max-w-3xl w-full max-h-[90vh] shadow-2xl relative
+          rounded-2xl w-full max-w-6xl max-h-[90vh] shadow-2xl relative
           flex flex-col
+          mx-auto
         `}
         onClick={(e) => e.stopPropagation()}
       >

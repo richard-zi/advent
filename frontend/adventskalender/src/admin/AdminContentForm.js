@@ -71,6 +71,7 @@ const AdminContentForm = ({
             <option value="poll">Poll</option>
             <option value="puzzle">Sliding Puzzle</option>
             <option value="countdown">Countdown</option>
+            <option value="iframe">Embedded Content (iframe)</option>
           </select>
         </div>
 
@@ -85,6 +86,33 @@ const AdminContentForm = ({
               className="w-full p-2 border border-gray-300 rounded-md h-32"
               placeholder="Enter your content here..."
             />
+          </div>
+        )}
+
+        {uploadType === 'iframe' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Embedded URL (e.g., YouTube Embed URL)
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={textContent}
+                  onChange={(e) => onTextContentChange(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  placeholder="https://www.youtube.com/embed/VIDEO_ID"
+                />
+                <div className="text-sm text-gray-500">
+                  <p>For YouTube videos:</p>
+                  <ol className="list-decimal ml-4 space-y-1">
+                    <li>Go to the YouTube video</li>
+                    <li>Click "Share" and then "Embed"</li>
+                    <li>Copy the URL from the embed code (starts with https://www.youtube.com/embed/)</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

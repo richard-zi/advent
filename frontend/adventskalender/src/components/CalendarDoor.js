@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect } from 'react';
-import { BarChart2, Puzzle } from 'lucide-react';
+import { BarChart2, Puzzle, Film, FileText, Music } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 const SmallCountdown = React.lazy(() => import('./SmallCountdown'));
@@ -94,13 +94,13 @@ const CalendarDoor = ({
     const iconColor = darkMode ? 'text-gray-300' : 'text-gray-500';
     switch (type) {
       case 'audio':
-        return (
-          <svg className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-        );
+        return <Music className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} />;
       case 'puzzle':
         return <Puzzle className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} />;
+      case 'text':
+        return <FileText className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} />;
+      case 'iframe':
+        return <Film className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${iconColor}`} />;
       default:
         return null;
     }
@@ -137,39 +137,29 @@ const CalendarDoor = ({
     switch (previewContent.type) {
       case 'text':
         return (
-          <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center overflow-hidden`}>
-            {getPreviewText(previewContent.data)}
-          </p>
-        );
-      case 'audio':
-        return (
-          <div className="w-full h-full flex items-center justify-center">
-            {renderMediaIcon('audio')}
+          <div className="flex flex-col items-center justify-center h-full">
+            <FileText className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ${darkMode ? 'text-gray-300' : 'text-gray-500'} mb-2`} />
+            <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-center px-2`}>
+              {getPreviewText(previewContent.data)}
+            </p>
           </div>
         );
+      case 'audio':
       case 'puzzle':
-        if (!previewContent.isSolved) {
-          return (
-            <div className="w-full h-full flex items-center justify-center">
-              {renderMediaIcon('puzzle')}
-            </div>
-          );
-        }
-        return previewContent.thumbnail ? (
-          <MediaPreview
-            src={previewContent.data}
-            alt={`Completed puzzle for door ${day}`}
-            darkMode={darkMode}
-            isPreloaded={isPreloaded}
-          />
-        ) : null;
+      case 'iframe':
+        return (
+          <div className="w-full h-full flex items-center justify-center">
+            {renderMediaIcon(previewContent.type)}
+            {previewContent.type === 'iframe'}
+          </div>
+        );
       case 'video':
       case 'image':
       case 'gif':
         return previewContent.thumbnail ? (
           <MediaPreview
             src={previewContent.thumbnail}
-            alt={`Vorschau für Türchen ${day}`}
+            alt={`Preview for door ${day}`}
             darkMode={darkMode}
             isPreloaded={isPreloaded}
           />

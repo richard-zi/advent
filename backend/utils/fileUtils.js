@@ -1,86 +1,83 @@
-/**
- * @fileoverview /backend/utils/fileUtils.js
- * Datei-Utilities
- * 
- * Diese Klasse stellt verschiedene Hilfsfunktionen für die Dateiverarbeitung bereit.
- * Sie enthält Methoden zur Typbestimmung und zum Management von Dateien.
- */
-
-const fs = require('fs');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const paths = require('../config/paths');
+const { promisify } = require('util');
+const glob = promisify(require('glob'));
 
 class FileUtils {
-  /**
-   * Ermittelt den Dateityp anhand der Dateiendung
-   * @param {string} filename - Name der zu prüfenden Datei
-   * @returns {string} Der ermittelte Dateityp
-   */
+  static async ensureDirectoryExists(dirPath) {
+    try {
+      await fs.access(dirPath);
+    } catch {
+      await fs.mkdir(dirPath, { recursive: true });
+    }
+  }
+
+  static async fileExists(filePath) {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   static getFileType(filename) {
-    const extension = path.extname(filename).toLowerCase();
-    switch (extension) {
-      // Bildformate
-      case '.png':
-      case '.jpg':
-      case '.jpeg':
-        return 'image';
-      // Animierte Bilder
-      case '.gif':
-        return 'gif';
-      // Videoformate
-      case '.mp4':
-      case '.m4a':
-      case '.mov':
-        return 'video';
-      // Audioformate
-      case '.mp3':
-      case '.ogg':
-      case '.wav':
-        return 'audio';
-      // Textformate
+    if (!filename) return 'unknown';
+    
+    const ext = path.extname(filename).toLowerCase();
+    
+    switch (ext) {
       case '.txt':
       case '.md':
         return 'text';
-      // Unbekannte Formate
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.webp':
+        return 'image';
+      case '.mp4':
+      case '.webm':
+      case '.mov':
+        return 'video';
+      case '.gif':
+        return 'gif';
+      case '.mp3':
+      case '.wav':
+      case '.ogg':
+        return 'audio';
       default:
         return 'unknown';
     }
   }
 
-  /**
-   * Räumt temporäre Dateien im Thumbnail-Verzeichnis auf
-   * Diese Methode wird beim Serverstart ausgeführt
-   */
-  static cleanupTempFiles() {
-    if (fs.existsSync(paths.thumbnailsDir)) {
-      try {
-        const files = fs.readdirSync(paths.thumbnailsDir);
-        files.forEach(file => {
-          // Lösche alle Dateien die '_temp' im Namen haben
-          if (file.includes('_temp')) {
-            try {
-              fs.unlinkSync(path.join(paths.thumbnailsDir, file));
-              logger.info('Gelöschte temporäre Datei:', file);
-            } catch (error) {
-              logger.warn('Konnte temporäre Datei nicht löschen:', file);
-            }
-          }
-        });
-      } catch (error) {
-        logger.error('Fehler beim Aufräumen temporärer Dateien:', error);
-      }
+  static async cleanupTempFiles() {
+    try {
+      const tempFiles = await glob('*.tmp', { cwd: process.cwd() });
+      await Promise.all(tempFiles.map(file => fs.unlink(file)));
+    } catch (error) {
+      logger.error('Error cleaning up temp files:', error);
     }
   }
 
-  /**
-   * Stellt sicher, dass ein Verzeichnis existiert
-   * Erstellt es bei Bedarf rekursiv
-   * @param {string} dirPath - Pfad zum zu prüfenden Verzeichnis
-   */
-  static ensureDirectoryExists(dirPath) {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
+  static async readTextFile(filePath) {
+    try {
+      const content = await fs.readFile(filePath, 'utf8');
+      return content;
+    } catch (error) {
+      logger.error(`Error reading text file ${filePath}:`, error);
+      return null;
+    }
+  }
+
+  static parseIframeUrl(content) {
+    try {
+      const match = content.match(/<\[iframe\]>(.*?)<\[iframe\]>/);
+      return match ? match[1] : null;
+    } catch (error) {
+      logger.error('Error parsing iframe URL:', error);
+      return null;
     }
   }
 }

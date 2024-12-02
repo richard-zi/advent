@@ -1,196 +1,280 @@
-/**
- * @fileoverview /backend/services/mediaService.js
- */
-
-const fs = require('fs');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 const logger = require('../utils/logger');
-const { getFileType } = require('../utils/fileUtils');
+const FileUtils = require('../utils/fileUtils');
 const paths = require('../config/paths');
-const medium = require('../medium.json');
-const timingService = require('./timingService');
+const TimingService = require('./timingService');
 
 class MediaService {
-  /**
-   * Holt eine Mediendatei anhand ihres Index
-   * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string>} Der Dateipfad der Mediendatei
-   */
   static async getMediaFile(index) {
     try {
-      if (isNaN(index) || medium[index] === undefined) {
-        throw new Error('Datei nicht gefunden');
+      const mediumContent = await fs.readFile(path.join(paths.rootDir, 'medium.json'), 'utf8');
+      const medium = JSON.parse(mediumContent);
+      
+      if (!medium[index]) {
+        throw new Error('File not found');
       }
       
-      const filePath = path.join(paths.mediaDir, medium[index]);
-      if (!fs.existsSync(filePath)) {
-        throw new Error('Datei nicht gefunden');
-      }
-      
-      return filePath;
+      return path.join(paths.mediaDir, medium[index]);
     } catch (error) {
-      logger.error('Fehler beim Abrufen der Mediendatei:', error);
+      logger.error('Error reading media file:', error);
       throw error;
     }
   }
 
-  /**
-   * Speichert die Daten für ein Puzzle
-   * @param {number} doorNumber - Die Türnummer
-   * @param {Object} data - Die Puzzledaten
-   * @returns {Promise<void>}
-   */
-  /**
-   * Speichert die Daten für ein Puzzle
-   * @param {number} doorNumber - Die Türnummer
-   * @param {Object} puzzleFile - Die hochgeladene Bilddatei
-   * @returns {Promise<void>}
-   */
-  static async savePuzzleData(doorNumber, puzzleFile) {
-    try {
-      const mediumPath = path.join(paths.rootDir, 'medium.json');
-      const mediumContent = JSON.parse(await fs.promises.readFile(mediumPath, 'utf8'));
-
-      // 1. Speichere den Puzzle-Marker
-      const puzzleMarkerFile = `${doorNumber}.txt`;
-      const puzzleMarkerPath = path.join(paths.mediaDir, puzzleMarkerFile);
-      await fs.promises.writeFile(puzzleMarkerPath, '<[puzzle]>');
-      mediumContent[doorNumber] = puzzleMarkerFile;
-
-      // 2. Speichere das Puzzle-Bild
-      const imageIndex = this.getPuzzleImageIndex(doorNumber);
-      const imageExt = path.extname(puzzleFile.originalname);
-      const imageFilename = `${imageIndex}${imageExt}`;
-      const imagePath = path.join(paths.mediaDir, imageFilename);
-
-      // Verschiebe das hochgeladene Bild
-      await fs.promises.rename(puzzleFile.path, imagePath);
-      mediumContent[imageIndex] = imageFilename;
-
-      // Speichere die aktualisierte medium.json
-      await fs.promises.writeFile(mediumPath, JSON.stringify(mediumContent, null, 2));
-    } catch (error) {
-      logger.error('Fehler beim Speichern der Puzzle-Daten:', error);
-      throw error;
-    }
-  }
-
-
-  /**
-   * Prüft ob eine Datei eine Umfrage enthält
-   * @param {string} filePath - Der zu prüfende Dateipfad
-   * @returns {boolean} True wenn es sich um eine Umfrage handelt
-   */
-  static isPoll(filePath) {
-    try {
-      if (!fs.existsSync(filePath)) return false;
-      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
-      return content === '<[poll]>';
-    } catch (error) {
-      logger.error('Fehler bei der Umfrageüberprüfung:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Prüft ob eine Datei einen Countdown enthält
-   * @param {string} filePath - Der zu prüfende Dateipfad
-   * @returns {boolean} True wenn es sich um einen Countdown handelt
-   */
-  static isCountdown(filePath) {
-    try {
-      if (!fs.existsSync(filePath)) return false;
-      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
-      return content === '<[countdown]>';
-    } catch (error) {
-      logger.error('Fehler bei der Countdown-Überprüfung:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Prüft ob die Datei ein Puzzle ist
-   * @param {string} filePath - Pfad zur Datei
-   * @returns {boolean} True wenn es sich um ein Puzzle handelt
-   */
-  static isPuzzle(filePath) {
-    try {
-      if (!fs.existsSync(filePath)) return false;
-      const content = fs.readFileSync(filePath, 'utf8').toString().trim();
-      return content === '<[puzzle]>';
-    } catch (error) {
-      logger.error('Error checking puzzle:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Übersetzt den Puzzle-Index in einen weiteren Medienindex für das Hintergrundbild
-   * @param {number} index - Index zu dem Puzzle
-   * @returns {number} Index zu dem verknüpften Medium (ein Bild)
-   */
-  static getPuzzleImageIndex(index) {
-    return index + timingService.loopAround;
-  }
-
-  /**
-   * Holt eine zusätzliche Nachricht zu einer Mediendatei
-   * @param {number} index - Der Index der Mediendatei
-   * @returns {Promise<string|null>} Die zugehörige Nachricht oder null
-   */
   static async getMediaMessage(index) {
     try {
       const messagePath = path.join(paths.messagesDir, `${index}.txt`);
-      if (fs.existsSync(messagePath)) {
-        return fs.readFileSync(messagePath, 'utf8').toString();
+      const exists = await FileUtils.fileExists(messagePath);
+      
+      if (!exists) {
+        return null;
       }
-      return null;
+      
+      return await fs.readFile(messagePath, 'utf8');
     } catch (error) {
-      logger.error('Fehler beim Lesen der Nachrichtendatei:', error);
+      logger.error('Error reading message file:', error);
       return null;
     }
   }
 
-  /**
-   * Bereitet den Medieninhalt für die Auslieferung vor
-   * @param {string} filePath - Der Dateipfad der Mediendatei
-   * @param {string} fileType - Der Typ der Mediendatei
-   * @param {Object} doorStates - Der Status der Türen
-   * @param {number} doorNumber - Die Türchennummer
-   * @returns {Object} Der aufbereitete Medieninhalt
-   */
-  static prepareMediaContent(filePath, fileType, doorStates = {}, doorNumber) {
-    if (fileType === 'text' && this.isPuzzle(filePath)) {
-      const imageIndex = this.getPuzzleImageIndex(doorNumber);
-      const imageFilename = medium[imageIndex];
-      let imageUrl = null;
-      
-      if (imageFilename) {
-        imageUrl = `/media/${imageIndex}`;
+  static async updateMessage(index, message) {
+    try {
+      const messagePath = path.join(paths.messagesDir, `${index}.txt`);
+      await fs.writeFile(messagePath, message);
+      return true;
+    } catch (error) {
+      logger.error('Error updating message file:', error);
+      return false;
+    }
+  }
+
+  static async validateAudioFile(filePath) {
+    try {
+      const { stdout } = await execPromise(`ffprobe -i "${filePath}" -show_format -v quiet`);
+      return stdout.includes('format_name=mp3') || 
+             stdout.includes('format_name=wav') || 
+             stdout.includes('format_name=ogg');
+    } catch (error) {
+      logger.error('Error validating audio file:', error);
+      return false;
+    }
+  }
+
+  static async processAudioFile(originalPath, destinationPath) {
+    try {
+      // Validate the audio file first
+      const isValid = await this.validateAudioFile(originalPath);
+      if (!isValid) {
+        throw new Error('Invalid audio file format');
       }
 
-      return {
-        type: 'puzzle',
-        data: imageUrl,
-        isSolved: doorStates[doorNumber]?.win || false
-      };
-    }
+      // Get the file extension
+      const ext = path.extname(originalPath).toLowerCase();
+      
+      // If it's already in a supported format, just copy it
+      if (['.mp3', '.wav', '.ogg'].includes(ext)) {
+        await fs.copyFile(originalPath, destinationPath);
+        return true;
+      }
 
-    // Andere Inhaltstypen wie bisher...
-    if (fileType === 'text' && this.isCountdown(filePath)) {
-      return { type: 'countdown', data: null };
+      // Convert to MP3 if it's in another format
+      await execPromise(`ffmpeg -i "${originalPath}" -vn -ar 44100 -ac 2 -b:a 192k "${destinationPath}"`);
+      return true;
+    } catch (error) {
+      logger.error('Error processing audio file:', error);
+      throw new Error('Failed to process audio file');
     }
+  }
 
-    if (fileType === 'text' && this.isPoll(filePath)) {
-      return { type: 'poll', data: null };
+  static async handleAudioUpload(file, doorNumber) {
+    try {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const newFilename = `${doorNumber}${ext}`;
+      const destinationPath = path.join(paths.mediaDir, newFilename);
+
+      // Process the audio file
+      await this.processAudioFile(file.path, destinationPath);
+
+      // Update medium.json
+      const mediumPath = path.join(paths.rootDir, 'medium.json');
+      const medium = JSON.parse(await fs.readFile(mediumPath, 'utf8'));
+      medium[doorNumber] = newFilename;
+      await fs.writeFile(mediumPath, JSON.stringify(medium, null, 2));
+
+      // Clean up the temporary file
+      await fs.unlink(file.path);
+
+      return newFilename;
+    } catch (error) {
+      logger.error('Error handling audio upload:', error);
+      throw error;
     }
+  }
 
-    let data = '';
-    if (fileType === 'text') {
-      data = fs.readFileSync(filePath, 'utf8').toString();
+  static prepareMediaContent(filePath, fileType, doorStates, index) {
+    try {
+      switch (fileType) {
+        case 'text': {
+          const content = fsSync.readFileSync(filePath, 'utf8');
+          
+          // Check for special content markers
+          if (content.trim() === '<[countdown]>') {
+            return { type: 'countdown' };
+          }
+          if (content.trim() === '<[poll]>') {
+            return { type: 'poll' };
+          }
+          if (content.trim() === '<[puzzle]>') {
+            return { type: 'puzzle' };
+          }
+          
+          // Check for iframe content
+          const iframeMatch = content.match(/<\[iframe\]>(.*?)<\[iframe\]>/);
+          if (iframeMatch) {
+            return { 
+              type: 'iframe',
+              data: iframeMatch[1].trim()
+            };
+          }
+
+          // Return regular text content
+          return { type: 'text', data: content };
+        }
+        case 'audio': {
+          // Verify the audio file exists and is readable
+          if (!fsSync.existsSync(filePath)) {
+            logger.error(`Audio file not found: ${filePath}`);
+            return { type: 'error', error: 'Audio file not found' };
+          }
+
+          try {
+            fsSync.accessSync(filePath, fsSync.constants.R_OK);
+            return { type: 'audio' };
+          } catch (error) {
+            logger.error(`Audio file not readable: ${filePath}`, error);
+            return { type: 'error', error: 'Audio file not accessible' };
+          }
+        }
+        case 'video':
+          return { type: 'video' };
+        case 'image':
+          return { type: 'image' };
+        case 'gif':
+          return { type: 'gif' };
+        default:
+          return { type: 'unknown' };
+      }
+    } catch (error) {
+      logger.error('Error preparing media content:', error);
+      return { type: 'error', error: 'Failed to prepare media content' };
     }
+  }
 
-    return { type: fileType, data };
+  static getPuzzleImageIndex(doorNumber) {
+    return doorNumber + TimingService.loopAround;
+  }
+
+  static async savePuzzleData(doorNumber, file) {
+    try {
+      const mediumPath = path.join(paths.rootDir, 'medium.json');
+      const medium = JSON.parse(await fs.readFile(mediumPath, 'utf8'));
+      
+      // Save puzzle marker
+      const puzzleMarkerPath = path.join(paths.mediaDir, `${doorNumber}.txt`);
+      await fs.writeFile(puzzleMarkerPath, '<[puzzle]>');
+      medium[doorNumber] = `${doorNumber}.txt`;
+
+      // Save puzzle image
+      const imageIndex = this.getPuzzleImageIndex(doorNumber);
+      medium[imageIndex] = file.filename;
+      
+      await fs.writeFile(mediumPath, JSON.stringify(medium, null, 2));
+      return true;
+    } catch (error) {
+      logger.error('Error saving puzzle data:', error);
+      throw error;
+    }
+  }
+
+  static async saveIframeContent(doorNumber, url, message = null) {
+    try {
+      const mediumPath = path.join(paths.rootDir, 'medium.json');
+      const medium = JSON.parse(await fs.readFile(mediumPath, 'utf8'));
+
+      // Create content file with iframe tag
+      const filename = `${doorNumber}.txt`;
+      const filePath = path.join(paths.mediaDir, filename);
+      await fs.writeFile(filePath, `<[iframe]>${url}<[iframe]>`);
+
+      // Update medium.json
+      medium[doorNumber] = filename;
+      await fs.writeFile(mediumPath, JSON.stringify(medium, null, 2));
+
+      // Save additional message if provided
+      if (message) {
+        await this.updateMessage(doorNumber, message);
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error saving iframe content:', error);
+      throw error;
+    }
+  }
+
+  static async deleteContent(doorNumber) {
+    try {
+      const mediumPath = path.join(paths.rootDir, 'medium.json');
+      const medium = JSON.parse(await fs.readFile(mediumPath, 'utf8'));
+
+      if (!medium[doorNumber]) {
+        return false;
+      }
+
+      const filename = medium[doorNumber];
+      const filePath = path.join(paths.mediaDir, filename);
+      
+      // Check if content is a puzzle
+      if (filename.endsWith('.txt')) {
+        const content = await fs.readFile(filePath, 'utf8');
+        if (content.trim() === '<[puzzle]>') {
+          // Delete associated puzzle image
+          const imageIndex = this.getPuzzleImageIndex(doorNumber);
+          if (medium[imageIndex]) {
+            const puzzleImagePath = path.join(paths.mediaDir, medium[imageIndex]);
+            if (fsSync.existsSync(puzzleImagePath)) {
+              await fs.unlink(puzzleImagePath);
+            }
+            delete medium[imageIndex];
+          }
+        }
+      }
+
+      // Delete the main content file
+      if (fsSync.existsSync(filePath)) {
+        await fs.unlink(filePath);
+      }
+
+      // Delete associated message if exists
+      const messagePath = path.join(paths.messagesDir, `${doorNumber}.txt`);
+      if (fsSync.existsSync(messagePath)) {
+        await fs.unlink(messagePath);
+      }
+
+      // Delete from medium.json
+      delete medium[doorNumber];
+      await fs.writeFile(mediumPath, JSON.stringify(medium, null, 2));
+
+      return true;
+    } catch (error) {
+      logger.error('Error deleting content:', error);
+      throw error;
+    }
   }
 }
 
