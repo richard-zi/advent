@@ -516,7 +516,7 @@ const AdventCalendar = () => {
         <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 sm:mb-6 ${
           darkMode ? 'text-gray-100' : 'text-gray-800'
         } tracking-tight transition-colors duration-300`}>
-          Adventskalender
+          CoE Adventskalender
         </h1>
 
         <div className={`w-full max-w-xs sm:max-w-2xl md:max-w-4xl lg:max-w-5xl p-2 sm:p-4 ${
