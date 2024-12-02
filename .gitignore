@@ -27,3 +27,4 @@ adventskalender/.env.production.local
 adventskalender/npm-debug.log*
 adventskalender/yarn-debug.log*
 adventskalender/yarn-error.log*
+backend/config/admin-credentials.json
