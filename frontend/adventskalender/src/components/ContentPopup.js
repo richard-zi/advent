@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, Suspense } from "react";
-import { Play, Pause } from 'lucide-react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { Play, Pause, Volume2, Volume1, VolumeX, RefreshCcw } from 'lucide-react';
 import Dialog from './Dialog';
 import ReactMarkdown from 'react-markdown';
 import LoadingSpinner from './LoadingSpinner';
@@ -16,7 +16,6 @@ const LoadingFallback = ({ darkMode }) => (
   </div>
 );
 
-// In der ContentPopup Komponente
 const AudioPlayer = ({ src, darkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -24,131 +23,166 @@ const AudioPlayer = ({ src, darkMode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVolumeHovered, setIsVolumeHovered] = useState(false);
   const audioRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const previousVolumeRef = useRef(1);
 
   useEffect(() => {
-    setIsLoading(true);
-    setError(null);
-    setCurrentTime(0);
-    setIsPlaying(false);
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    const preloadAudio = async () => {
-      try {
-        const cached = localStorage.getItem(`${CACHE_PREFIX}audio-${src}`);
-        
-        if (!cached) {
-          const audio = new Audio();
-          
-          // Add progress monitoring
-          audio.addEventListener('progress', () => {
-            if (audio.buffered.length > 0) {
-              const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
-              const duration = audio.duration;
-              const progress = (bufferedEnd / duration) * 100;
-              setLoadingProgress(progress);
-            }
-          });
+    const handleLoadStart = () => {
+      setIsLoading(true);
+      setError(null);
+    };
 
-          // Setup promise for loading
-          await new Promise((resolve, reject) => {
-            audio.onloadeddata = resolve;
-            audio.onerror = reject;
-            audio.preload = 'auto';
-            audio.src = src;
-            audio.load();
-          });
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      setIsLoading(false);
+    };
 
-          localStorage.setItem(`${CACHE_PREFIX}audio-${src}`, 'loaded');
-        }
-
-        // Set up the actual audio element for playback
-        if (audioRef.current) {
-          audioRef.current.src = src;
-          audioRef.current.load();
-        }
-
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error loading audio:', err);
-        setError('Failed to load audio file');
-        setIsLoading(false);
+    const handleProgress = () => {
+      if (audio.buffered.length > 0) {
+        const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
+        const duration = audio.duration || 0;
+        const progress = duration ? (bufferedEnd / duration) * 100 : 0;
+        setLoadingProgress(progress);
+        setIsBuffering(bufferedEnd <= audio.currentTime + 5);
       }
     };
 
-    preloadAudio();
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
 
-    // Setup event listeners for the actual audio element
-    const audio = audioRef.current;
-    if (audio) {
-      const handleLoadedMetadata = () => {
-        setDuration(audio.duration);
-        setIsLoading(false);
-      };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      audio.currentTime = 0;
+    };
 
-      const handleTimeUpdate = () => {
-        setCurrentTime(audio.currentTime);
-      };
+    const handleError = (e) => {
+      console.error('Audio error:', e);
+      setError('Audio konnte nicht geladen werden');
+      setIsLoading(false);
+    };
 
-      const handleEnded = () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
-      };
+    const handleWaiting = () => {
+      setIsBuffering(true);
+    };
 
-      const handleError = (e) => {
-        console.error('Audio playback error:', e);
-        setError('Error playing audio');
-        setIsPlaying(false);
-      };
+    const handlePlaying = () => {
+      setIsBuffering(false);
+      setIsLoading(false);
+      setError(null);
+    };
 
-      // Add progress monitoring for the actual playback element
-      const handleProgress = () => {
-        if (audio.buffered.length > 0) {
-          const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
-          const progress = (bufferedEnd / audio.duration) * 100;
-          setLoadingProgress(progress);
-        }
-      };
+    const handleCanPlay = () => {
+      setIsLoading(false);
+      setError(null);
+    };
 
-      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('ended', handleEnded);
-      audio.addEventListener('error', handleError);
-      audio.addEventListener('progress', handleProgress);
+    // Add event listeners
+    audio.addEventListener('loadstart', handleLoadStart);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('progress', handleProgress);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+    audio.addEventListener('waiting', handleWaiting);
+    audio.addEventListener('playing', handlePlaying);
+    audio.addEventListener('canplay', handleCanPlay);
 
-      return () => {
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('error', handleError);
-        audio.removeEventListener('progress', handleProgress);
-      };
-    }
+    // Set initial source
+    audio.src = src;
+    audio.load();
+
+    // Cleanup
+    return () => {
+      audio.removeEventListener('loadstart', handleLoadStart);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('progress', handleProgress);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+      audio.removeEventListener('waiting', handleWaiting);
+      audio.removeEventListener('playing', handlePlaying);
+      audio.removeEventListener('canplay', handleCanPlay);
+      audio.src = '';
+    };
   }, [src]);
 
-  const handleProgressChange = (e) => {
-    const newTime = parseFloat(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-    }
+  const handleProgressBarClick = (e) => {
+    if (!progressBarRef.current || !audioRef.current || !duration) return;
+    
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const newTime = clickPosition * duration;
+    
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
   };
 
   const togglePlay = async () => {
     try {
-      if (audioRef.current) {
-        if (audioRef.current.paused) {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } else {
-          audioRef.current.pause();
-          setIsPlaying(false);
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      if (audio.paused) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              setError(null);
+            })
+            .catch(err => {
+              console.error('Playback error:', err);
+              setError('Wiedergabe fehlgeschlagen');
+              setIsPlaying(false);
+            });
         }
+      } else {
+        audio.pause();
+        setIsPlaying(false);
       }
     } catch (err) {
-      console.error('Playback error:', err);
-      setError('Failed to play audio');
+      console.error('Toggle play error:', err);
+      setError('Wiedergabe fehlgeschlagen');
       setIsPlaying(false);
     }
+  };
+
+  const handleVolumeChange = (e) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+      if (newVolume > 0) {
+        setIsMuted(false);
+      }
+      previousVolumeRef.current = newVolume;
+    }
+  };
+
+  const toggleMute = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!isMuted) {
+      previousVolumeRef.current = volume;
+      audio.volume = 0;
+      setVolume(0);
+    } else {
+      const newVolume = previousVolumeRef.current;
+      audio.volume = newVolume;
+      setVolume(newVolume);
+    }
+    setIsMuted(!isMuted);
   };
 
   const formatTime = (time) => {
@@ -158,69 +192,214 @@ const AudioPlayer = ({ src, darkMode }) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const getVolumeIcon = () => {
+    if (volume === 0 || isMuted) return <VolumeX size={18} />;
+    return volume < 0.5 ? <Volume1 size={18} /> : <Volume2 size={18} />;
+  };
+
   const progressPercentage = duration ? (currentTime / duration) * 100 : 0;
 
+  if (error) {
+    return (
+      <div className={`flex items-center justify-center p-4 rounded-lg ${
+        darkMode ? 'bg-red-900/20 text-red-400' : 'bg-red-100 text-red-600'
+      }`}>
+        <span className="flex items-center gap-2">
+          <RefreshCcw size={16} className="animate-spin" />
+          {error}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} shadow-md`}>
-      {isLoading ? (
-        <div className="flex flex-col items-center">
-          <LoadingSpinner darkMode={darkMode} />
-          <div className="mt-2 text-sm text-gray-500">
-            Loading: {Math.round(loadingProgress)}%
+    <div className="flex items-center justify-center max-w-6xl mx-auto px-16">
+      <div className="flex items-center space-x-8 w-full">
+      <audio
+        ref={audioRef}
+        preload="auto"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+
+      {/* Play/Pause Button */}
+      <button
+        onClick={togglePlay}
+        disabled={isLoading}
+        className={`
+          w-14 h-14 rounded-full 
+          flex items-center justify-center
+          transition-all duration-300
+          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}
+          ${darkMode ? 
+            'bg-blue-600 hover:bg-blue-500 text-white' : 
+            'bg-blue-500 hover:bg-blue-600 text-white'
+          }
+          ${isBuffering ? 'animate-pulse' : ''}
+        `}
+      >
+        {isBuffering ? (
+          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          isPlaying ? 
+            <Pause size={24} /> : 
+            <Play size={24} className="ml-0.5" />
+        )}
+      </button>
+
+        {/* Progress Section */}
+        <div className="flex-grow flex flex-col gap-1.5">
+          {/* Progress Bar */}
+          <div className="relative" ref={progressBarRef}>
+            <div 
+              className={`
+                h-2 rounded-full cursor-pointer
+                ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}
+                group relative
+              `}
+              onClick={handleProgressBarClick}
+            >
+              {/* Loading Progress */}
+              <div
+                className={`
+                  absolute h-full rounded-full
+                  ${darkMode ? 'bg-gray-600' : 'bg-gray-300'}
+                  transition-all duration-300 ease-out
+                `}
+                style={{ width: `${loadingProgress}%` }}
+              />
+              
+              {/* Playback Progress */}
+              <div
+                className={`
+                  absolute h-full rounded-full
+                  ${darkMode ? 'bg-blue-500' : 'bg-blue-500'}
+                  transition-all duration-150 ease-out
+                `}
+                style={{ width: `${progressPercentage}%` }}
+              >
+                {/* Progress Knob */}
+                <div 
+                  className={`
+                    absolute right-0 top-1/2 -translate-y-1/2
+                    w-4 h-4 rounded-full 
+                    ${darkMode ? 'bg-blue-400' : 'bg-blue-400'}
+                    opacity-0 group-hover:opacity-100
+                    transition-all duration-200
+                    transform translate-x-1/2
+                    shadow-lg
+                    scale-90 hover:scale-100
+                  `}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Time Display */}
+          <div className="flex justify-between items-center px-0.5">
+            <span className={`text-xs font-medium ${
+              darkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {formatTime(currentTime)}
+            </span>
+            <span className={`text-xs font-medium ${
+              darkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {formatTime(duration)}
+            </span>
           </div>
         </div>
-      ) : error ? (
-        <div className={`text-center ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
-          {error}
-        </div>
-      ) : (
-        <div className="flex flex-col space-y-4">
-          <audio ref={audioRef} preload="auto">
-            <source src={src} type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
 
+        {/* Volume Controls */}
+        <div 
+          className="relative"
+          onMouseEnter={() => setIsVolumeHovered(true)}
+          onMouseLeave={() => setIsVolumeHovered(false)}
+        >
           <button
-            onClick={togglePlay}
+            onClick={toggleMute}
             className={`
-              w-12 h-12 rounded-full 
-              flex items-center justify-center
-              ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}
+              p-2 rounded-lg
+              ${darkMode ? 
+                'hover:bg-gray-700/50 text-gray-300' : 
+                'hover:bg-gray-100 text-gray-600'
+              }
               transition-colors duration-200
             `}
           >
-            {isPlaying ? <Pause className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white" />}
+            {getVolumeIcon()}
           </button>
 
-          <div className="space-y-2">
-            <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
-              {/* Progress Bar Background */}
-              <div
-                className={`absolute h-full transition-all duration-150 ${darkMode ? 'bg-blue-600' : 'bg-blue-500'}`}
-                style={{ width: `${progressPercentage}%` }}
-              />
-              {/* Range Input */}
-              <input
-                type="range"
-                min="0"
-                max={duration || 0}
-                value={currentTime}
-                onChange={handleProgressChange}
-                className="absolute w-full h-full opacity-0 cursor-pointer"
-                style={{ 
-                  WebkitAppearance: 'none',
-                  margin: 0
-                }}
-              />
+          {/* Volume Popup */}
+          <div className={`
+            absolute bottom-[calc(100%+0.5rem)] 
+            transition-all duration-200 w-8
+            ${isVolumeHovered ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-1'}
+          `}>
+            <div className={`
+              py-2 px-2 rounded-lg shadow-lg
+              ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}
+              w-8 h-28 flex flex-col items-center relative
+            `}>
+              <div className="h-20 flex items-center justify-center w-full">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className={`
+                    h-20 w-1
+                    rounded-full 
+                    ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}
+                    appearance-none 
+                    cursor-pointer
+                    [writing-mode:bt-lr]
+                    [-webkit-appearance:slider-vertical]
+                    [&::-webkit-slider-thumb]:appearance-none
+                    [&::-webkit-slider-thumb]:w-3
+                    [&::-webkit-slider-thumb]:h-3
+                    [&::-webkit-slider-thumb]:rounded-full
+                    [&::-webkit-slider-thumb]:bg-blue-500
+                    [&::-webkit-slider-thumb]:hover:scale-110
+                    [&::-webkit-slider-thumb]:transition-transform
+                    [&::-moz-range-thumb]:w-3
+                    [&::-moz-range-thumb]:h-3
+                    [&::-moz-range-thumb]:rounded-full
+                    [&::-moz-range-thumb]:bg-blue-500
+                    [&::-moz-range-thumb]:border-0
+                    [&::-moz-range-thumb]:hover:scale-110
+                    [&::-moz-range-thumb]:transition-transform
+                  `}
+                />
+              </div>
+              <div className={`
+                text-xs font-medium mt-1 w-full text-center
+                absolute bottom-2 left-0 right-0
+                ${darkMode ? 'text-gray-400' : 'text-gray-600'}
+                z-10
+              `}>
+                {Math.round(volume * 100)}%
+              </div>
             </div>
 
-            <div className={`flex justify-between text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
+            {/* Arrow */}
+            <div className={`
+              w-3 h-3 rotate-45
+              absolute -bottom-1.5 left-1/2 -translate-x-1/2
+              ${darkMode ? 'bg-gray-800 border-r border-b border-gray-700' : 'bg-white border-r border-b border-gray-200'}
+            `} />
+
+            {/* Arrow */}
+            <div className={`
+              w-3 h-3 rotate-45
+              absolute -bottom-1.5 left-1/2 -translate-x-1/2
+              ${darkMode ? 'bg-gray-800 border-r border-b border-gray-700' : 'bg-white border-r border-b border-gray-200'}
+            `} />
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
