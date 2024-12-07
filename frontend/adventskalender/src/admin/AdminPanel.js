@@ -133,6 +133,9 @@ const AdminPanel = () => {
     
     if (uploadType === 'text') {
       formData.append('content', textContent);
+    } else if (uploadType === 'iframe') {
+      // Special handling for iframe content
+      formData.append('content', textContent);
     } else if (uploadType === 'poll') {
       formData.append('content', JSON.stringify({
         question: textContent,
@@ -147,12 +150,16 @@ const AdminPanel = () => {
     }
 
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/admin/api/upload/${selectedDoor}`, formData, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-          'Content-Type': 'multipart/form-data'
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/admin/api/upload/${selectedDoor}`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+            'Content-Type': 'multipart/form-data'
+          }
         }
-      });
+      );
       
       setFile(null);
       setTextContent('');

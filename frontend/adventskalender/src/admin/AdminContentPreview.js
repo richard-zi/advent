@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Music, Clock, Puzzle } from 'lucide-react';
+import { BarChart2, Music, Clock, Puzzle, Film, AlertTriangle } from 'lucide-react';
 import AdminContentTypeIcon from './AdminContentTypeIcon';
 
 const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
   const [puzzleImageUrl, setPuzzleImageUrl] = useState(null);
+  const [iframeError, setIframeError] = useState(false);
 
   useEffect(() => {
     if (content?.type === 'puzzle' && content.data) {
-      // Verwende die vollständige URL ohne HTTP-Protokoll, um sowohl HTTP als auch HTTPS zu unterstützen
       setPuzzleImageUrl(content.data);
     } else {
       setPuzzleImageUrl(null);
@@ -33,6 +33,44 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
     return cleanText.length > 80 ? cleanText.substring(0, 77) + '...' : cleanText;
   };
 
+  const renderIframeContent = () => {
+    // Wenn es sich um einen iframe-Typ handelt, sollte data die URL sein
+    if (content.type === 'iframe' && content.data) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <Film className="text-gray-500 mt-1" size={14} />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-700">Embedded Content</p>
+              <div className="mt-2 relative">
+                {iframeError ? (
+                  <div className="flex items-center gap-2 text-red-500 text-xs">
+                    <AlertTriangle size={12} />
+                    <span>Preview not available</span>
+                  </div>
+                ) : (
+                  <div className="relative w-full pt-[56.25%] bg-gray-100 rounded overflow-hidden">
+                    <iframe
+                      title={`Door ${doorIndex} embedded content preview`}
+                      src={content.data}
+                      className="absolute top-0 left-0 w-full h-full border-0"
+                      onError={() => setIframeError(true)}
+                      onLoad={() => setIframeError(false)}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500 break-all">{content.data}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const renderPuzzlePreview = () => {
     if (content.type !== 'puzzle') return null;
   
@@ -47,12 +85,12 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
                 <p className="text-xs font-medium text-gray-700 mb-1">Original Image:</p>
                 <div className="relative w-full h-32 border border-gray-200 rounded overflow-hidden">
                   <img 
-                    src={content.data}
+                    src={puzzleImageUrl}
                     alt={`Puzzle for door ${doorIndex}`} 
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       e.target.style.display = 'none';
-                      console.error('Failed to load puzzle image:', content.data);
+                      console.error('Failed to load puzzle image:', puzzleImageUrl);
                     }}
                   />
                 </div>
@@ -77,7 +115,8 @@ const AdminContentPreview = ({ content, pollContent, doorIndex }) => {
       </div>
 
       <div className="space-y-2">
-        {content.type === 'puzzle' && renderPuzzlePreview()}  
+        {content.type === 'puzzle' && renderPuzzlePreview()}
+        {content.type === 'iframe' && renderIframeContent()}
 
         {content.type === 'poll' && pollContent && (
           <div className="space-y-2">

@@ -4,8 +4,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const util = require('util');
-const jwt = require('jsonwebtoken'); 
-const sleep = util.promisify(setTimeout);
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const AuthService = require('../services/authService');
@@ -49,7 +48,7 @@ async function deleteFileWithRetry(filePath, maxRetries = 3, delayMs = 1000) {
         throw error;
       }
       
-      await sleep(delayMs);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
 }
@@ -145,24 +144,8 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
 
     // Delete old files if they exist
     if (medium[doorNumber]) {
-      // Check if it's a puzzle before deleting
       const oldFilePath = path.join(paths.mediaDir, medium[doorNumber]);
       if (fsSync.existsSync(oldFilePath)) {
-        const oldContent = await fs.readFile(oldFilePath, 'utf8');
-        const wasPuzzle = oldContent.trim() === '<[puzzle]>';
-        
-        if (wasPuzzle) {
-          // Delete the associated puzzle image
-          const oldImageIndex = doorNumber + timingService.loopAround;
-          if (medium[oldImageIndex]) {
-            const oldImagePath = path.join(paths.mediaDir, medium[oldImageIndex]);
-            if (fsSync.existsSync(oldImagePath)) {
-              await deleteFileWithRetry(oldImagePath);
-            }
-            delete medium[oldImageIndex];
-          }
-        }
-        
         await deleteFileWithRetry(oldFilePath);
       }
 
@@ -173,7 +156,13 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
     }
 
     try {
-      if (type === 'puzzle' && req.file) {
+      if (type === 'iframe') {
+        // Handle iframe content specifically
+        const fileName = `${doorNumber}.txt`;
+        const filePath = path.join(paths.mediaDir, fileName);
+        await fs.writeFile(filePath, `<[iframe]>${content}<[iframe]>`);
+        medium[doorNumber] = fileName;
+      } else if (type === 'puzzle' && req.file) {
         await MediaService.savePuzzleData(doorNumber, req.file);
       } else if (type === 'text' || type === 'poll') {
         const fileName = `${doorNumber}.txt`;
@@ -230,46 +219,11 @@ router.post('/api/upload/:doorNumber', authMiddleware, upload.single('file'), as
   }
 });
 
-
-router.get('/validate-token', authMiddleware, (req, res) => {
-  res.json({ valid: true });
-});
-
-router.post('/verify-password', async (req, res) => {
-  try {
-    const { password } = req.body;
-    const correctPassword = process.env.SITE_PASSWORD || 'advent2024';
-    
-    if (password === correctPassword) {
-      // Erstelle einen JWT-Token der nach 24 Stunden abläuft
-      const token = jwt.sign(
-        { type: 'visitor' },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      
-      res.json({ success: true, token });
-    } else {
-      res.status(401).json({ 
-        success: false, 
-        message: 'Falsches Passwort' 
-      });
-    }
-  } catch (error) {
-    logger.error('Password verification error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
-    });
-  }
-});
-
 router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
   const doorNumber = parseInt(req.params.doorNumber);
   const mediumPath = path.join(paths.rootDir, 'medium.json');
   
   try {
-    // Read medium.json
     const medium = await safeReadJson(mediumPath);
     if (!medium) {
       return res.status(500).json({ error: 'Error reading medium.json' });
@@ -282,85 +236,35 @@ router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
 
     const deletionPromises = [];
 
-    // 1. Handle media file
+    // Delete the media file
     const mediaPath = path.join(paths.mediaDir, filename);
     if (fsSync.existsSync(mediaPath)) {
-      // Check for puzzle content
-      if (filename.endsWith('.txt')) {
-        try {
-          const content = await fs.readFile(mediaPath, 'utf8');
-          if (content.trim() === '<[puzzle]>') {
-            // Delete associated puzzle image
-            const imageIndex = MediaService.getPuzzleImageIndex(doorNumber);
-            if (medium[imageIndex]) {
-              const puzzleImagePath = path.join(paths.mediaDir, medium[imageIndex]);
-              if (fsSync.existsSync(puzzleImagePath)) {
-                deletionPromises.push(deleteFileWithRetry(puzzleImagePath));
-              }
-              delete medium[imageIndex];
-            }
-          } else if (content.trim() === '<[poll]>') {
-            // Delete poll data
-            const pollsDir = path.join(paths.rootDir, 'polls');
-            const pollDataPath = path.join(pollsDir, 'pollData.json');
-            const pollVotesPath = path.join(pollsDir, 'pollVotes.json');
-
-            if (fsSync.existsSync(pollDataPath)) {
-              const pollData = await safeReadJson(pollDataPath);
-              if (pollData) {
-                delete pollData[doorNumber];
-                deletionPromises.push(safeWriteJson(pollDataPath, pollData));
-              }
-            }
-
-            if (fsSync.existsSync(pollVotesPath)) {
-              const pollVotes = await safeReadJson(pollVotesPath);
-              if (pollVotes) {
-                delete pollVotes[doorNumber];
-                deletionPromises.push(safeWriteJson(pollVotesPath, pollVotes));
-              }
-            }
-          }
-        } catch (error) {
-          logger.error('Error checking content type:', error);
-        }
-      }
-      
-      // Delete the media file
       deletionPromises.push(deleteFileWithRetry(mediaPath));
     }
 
-    // 2. Delete message file
+    // Delete message file if exists
     const messagePath = path.join(paths.messagesDir, `${doorNumber}.txt`);
     if (fsSync.existsSync(messagePath)) {
       deletionPromises.push(deleteFileWithRetry(messagePath));
     }
 
-    // 3. Delete thumbnail
+    // Delete thumbnail if exists
     const thumbnailPath = path.join(paths.thumbnailsDir, `thumb_${filename.split('.')[0]}.jpg`);
     if (fsSync.existsSync(thumbnailPath)) {
       deletionPromises.push(deleteFileWithRetry(thumbnailPath));
     }
 
-    // Wait for all deletion operations
+    // Wait for all deletions to complete
     await Promise.all(deletionPromises);
 
-    // 4. Update medium.json
+    // Update medium.json
     delete medium[doorNumber];
     await safeWriteJson(mediumPath, medium);
 
     res.json({ success: true });
   } catch (error) {
     logger.error('Error in deletion process:', error);
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? `Deletion failed: ${error.message}`
-      : 'Failed to delete content';
-    
-    res.status(500).json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    res.status(500).json({ error: 'Deletion failed: ' + error.message });
   }
 });
 

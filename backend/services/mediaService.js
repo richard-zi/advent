@@ -142,30 +142,16 @@ class MediaService {
             };
           }
 
-          // Return regular text content
           return { type: 'text', data: content };
         }
-        case 'audio': {
-          // Verify the audio file exists and is readable
-          if (!fsSync.existsSync(filePath)) {
-            logger.error(`Audio file not found: ${filePath}`);
-            return { type: 'error', error: 'Audio file not found' };
-          }
-
-          try {
-            fsSync.accessSync(filePath, fsSync.constants.R_OK);
-            return { type: 'audio' };
-          } catch (error) {
-            logger.error(`Audio file not readable: ${filePath}`, error);
-            return { type: 'error', error: 'Audio file not accessible' };
-          }
-        }
+        case 'audio':
+          return { type: 'audio', data: `media/${index}` };
         case 'video':
-          return { type: 'video' };
+          return { type: 'video', data: `media/${index}` };
         case 'image':
-          return { type: 'image' };
+          return { type: 'image', data: `media/${index}` };
         case 'gif':
-          return { type: 'gif' };
+          return { type: 'gif', data: `media/${index}` };
         default:
           return { type: 'unknown' };
       }
@@ -201,7 +187,7 @@ class MediaService {
     }
   }
 
-  static async saveIframeContent(doorNumber, url, message = null) {
+  static async saveIframeContent(doorNumber, url) {
     try {
       const mediumPath = path.join(paths.rootDir, 'medium.json');
       const medium = JSON.parse(await fs.readFile(mediumPath, 'utf8'));
@@ -214,11 +200,6 @@ class MediaService {
       // Update medium.json
       medium[doorNumber] = filename;
       await fs.writeFile(mediumPath, JSON.stringify(medium, null, 2));
-
-      // Save additional message if provided
-      if (message) {
-        await this.updateMessage(doorNumber, message);
-      }
 
       return true;
     } catch (error) {
