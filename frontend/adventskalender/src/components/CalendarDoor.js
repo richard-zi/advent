@@ -12,7 +12,7 @@ const LoadingFallback = ({ darkMode }) => (
 
 const CACHE_PREFIX = 'door-preview-';
 
-const MediaPreview = ({ src, alt, darkMode, isPreloaded }) => {
+const MediaPreview = ({ src, alt, darkMode, isPreloaded, contentType, doorStates, day, content }) => {
   const [isLoading, setIsLoading] = useState(!isPreloaded);
   const [imageSrc, setImageSrc] = useState(() => {
     const cached = localStorage.getItem(`${CACHE_PREFIX}${src}`);
@@ -20,18 +20,32 @@ const MediaPreview = ({ src, alt, darkMode, isPreloaded }) => {
   });
 
   useEffect(() => {
-    if (src && !imageSrc) {
+    let effectiveSrc = src;
+    const isPuzzle = contentType === 'puzzle';
+    const isPuzzleSolved = isPuzzle && doorStates[day]?.win;
+
+    if (isPuzzle) {
+      if (isPuzzleSolved && content?.data) {
+        // Wenn das Puzzle gelöst ist, zeige das vollständige Bild
+        effectiveSrc = content.data;
+      } else if (content?.thumbnail) {
+        // Wenn nicht gelöst, zeige das Thumbnail
+        effectiveSrc = content.thumbnail;
+      }
+    }
+
+    if (effectiveSrc && !imageSrc) {
       const img = new Image();
       img.onload = () => {
-        setImageSrc(src);
+        setImageSrc(effectiveSrc);
         setIsLoading(false);
-        localStorage.setItem(`${CACHE_PREFIX}${src}`, src);
+        localStorage.setItem(`${CACHE_PREFIX}${effectiveSrc}`, effectiveSrc);
       };
-      img.src = src;
+      img.src = effectiveSrc;
     } else if (imageSrc) {
       setIsLoading(false);
     }
-  }, [src, imageSrc]);
+  }, [src, imageSrc, contentType, doorStates, day, content]);
 
   return (
     <div className="w-full h-full relative">
@@ -144,12 +158,30 @@ const CalendarDoor = ({
           </div>
         );
       case 'audio':
-      case 'puzzle':
       case 'iframe':
         return (
           <div className="w-full h-full flex items-center justify-center">
             {renderMediaIcon(previewContent.type)}
-            {previewContent.type === 'iframe'}
+          </div>
+        );
+      case 'puzzle':
+        if (previewContent.thumbnail || (doorStates[day]?.win && previewContent.data)) {
+          return (
+            <MediaPreview
+              src={previewContent.thumbnail}
+              alt={`Preview for door ${day}`}
+              darkMode={darkMode}
+              isPreloaded={isPreloaded}
+              contentType={previewContent.type}
+              doorStates={doorStates}
+              day={day}
+              content={previewContent}
+            />
+          );
+        }
+        return (
+          <div className="w-full h-full flex items-center justify-center">
+            {renderMediaIcon('puzzle')}
           </div>
         );
       case 'video':
@@ -161,6 +193,10 @@ const CalendarDoor = ({
             alt={`Preview for door ${day}`}
             darkMode={darkMode}
             isPreloaded={isPreloaded}
+            contentType={previewContent.type}
+            doorStates={doorStates}
+            day={day}
+            content={previewContent}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
