@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Trash, RefreshCcw } from 'lucide-react';
 import axios from 'axios';
 import AdminDoorGrid from './AdminDoorGrid';
 import AdminContentForm from './AdminContentForm';
 import AdminDeleteDialog from './AdminDeleteDialog';
 
 const AdminPanel = () => {
+  // State Management
   const [doors, setDoors] = useState({});
   const [doorContents, setDoorContents] = useState({});
   const [pollContents, setPollContents] = useState({});
@@ -18,12 +19,25 @@ const AdminPanel = () => {
   const [error, setError] = useState('');
   const [pollOptions, setPollOptions] = useState(['']);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+  const [showCacheClearSuccess, setShowCacheClearSuccess] = useState(false);
 
+  // Initial data fetching
   useEffect(() => {
     fetchDoors();
     fetchAllContents();
     fetchPollData();
   }, []);
+
+  // Success message timer
+  useEffect(() => {
+    if (showCacheClearSuccess) {
+      const timer = setTimeout(() => {
+        setShowCacheClearSuccess(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showCacheClearSuccess]);
 
   const fetchDoors = async () => {
     try {
@@ -65,6 +79,54 @@ const AdminPanel = () => {
     }
   };
 
+  // Cache Management
+  const clearCache = async () => {
+    setClearingCache(true);
+    try {
+      // Speichere alle wichtigen Spielstände und Interaktionen
+      const statesToKeep = {
+        openDoors: localStorage.getItem('openDoors'),
+        doorStates: localStorage.getItem('doorStates'),
+        pollUserId: localStorage.getItem('pollUserId'),
+        darkMode: localStorage.getItem('darkMode'),
+        snowfall: localStorage.getItem('snowfall'),
+        adminToken: localStorage.getItem('adminToken')
+      };
+      
+      // Sammle alle Cache-Keys
+      const cacheKeys = Object.keys(localStorage).filter(key => 
+        key.startsWith('content-') || 
+        key.startsWith('door-preview-') ||
+        key.startsWith('calendarData') ||
+        key.startsWith('lastUpdate') ||
+        key.startsWith('preloadedContent')
+      );
+      
+      // Lösche Cache-Einträge
+      cacheKeys.forEach(key => localStorage.removeItem(key));
+      
+      // Stelle wichtige Daten wieder her
+      Object.entries(statesToKeep).forEach(([key, value]) => {
+        if (value !== null) localStorage.setItem(key, value);
+      });
+
+      // Lade Daten neu
+      await Promise.all([
+        fetchDoors(),
+        fetchAllContents(),
+        fetchPollData()
+      ]);
+
+      setShowCacheClearSuccess(true);
+      setError('');
+    } catch (err) {
+      setError('Error clearing cache');
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
+  // Content Management
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
@@ -134,7 +196,6 @@ const AdminPanel = () => {
     if (uploadType === 'text') {
       formData.append('content', textContent);
     } else if (uploadType === 'iframe') {
-      // Special handling for iframe content
       formData.append('content', textContent);
     } else if (uploadType === 'poll') {
       formData.append('content', JSON.stringify({
@@ -187,8 +248,36 @@ const AdminPanel = () => {
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Advent Calendar Admin</h1>
-          <Lock className="text-gray-500" />
+          <div className="flex items-center gap-4">
+            {/* Cache Clear Button */}
+            <button
+              onClick={clearCache}
+              disabled={clearingCache}
+              className={`
+                flex items-center gap-2 px-4 py-2 text-white 
+                rounded-md transition-colors
+                ${clearingCache 
+                  ? 'bg-orange-300 cursor-not-allowed' 
+                  : 'bg-orange-500 hover:bg-orange-600'}
+              `}
+            >
+              {clearingCache ? (
+                <RefreshCcw size={16} className="animate-spin" />
+              ) : (
+                <Trash size={16} />
+              )}
+              {clearingCache ? 'Clearing...' : 'Clear Cache'}
+            </button>
+            <Lock className="text-gray-500" />
+          </div>
         </div>
+
+        {/* Success Message */}
+        {showCacheClearSuccess && (
+          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md">
+            Cache cleared successfully!
+          </div>
+        )}
 
         <AdminDoorGrid 
           doors={doors}
