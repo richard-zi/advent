@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const CACHE_CHECK_INTERVAL = 30000; // Alle 30 Sekunden prüfen
@@ -6,7 +6,7 @@ const CACHE_CHECK_INTERVAL = 30000; // Alle 30 Sekunden prüfen
 export const useCache = () => {
   const [lastCacheCheck, setLastCacheCheck] = useState(Date.now());
 
-  const checkCacheValidity = async () => {
+  const checkCacheValidity = useCallback(async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/admin/api/cache-timestamp`);
       const serverTimestamp = response.data.timestamp;
@@ -37,12 +37,12 @@ export const useCache = () => {
       console.error('Error checking cache validity:', error);
       return false;
     }
-  };
+  }, [lastCacheCheck]);
 
   useEffect(() => {
     const interval = setInterval(checkCacheValidity, CACHE_CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkCacheValidity]);
 
   return { checkCacheValidity };
 };
