@@ -7,6 +7,7 @@ import Snowfall from './Snowfall';
 import AlertMessage from './AlertMessage';
 import LoadingSpinner from './LoadingSpinner';
 import axios from 'axios';
+import { useCache } from '../hooks/useCache';
 
 // Import background images
 import lightBackground from '../assets/light-background.jpg';
@@ -425,6 +426,19 @@ const AdventCalendar = () => {
       </div>
     );
   };
+
+  const { checkCacheValidity } = useCache();
+
+  useEffect(() => {
+    const checkAndReloadData = async () => {
+      const shouldReload = await checkCacheValidity();
+      if (shouldReload) {
+        fetchCalendarData();
+      }
+    };
+
+    checkAndReloadData();
+  }, [checkCacheValidity, fetchCalendarData]);
 
   if (themeLoading) {
     return (

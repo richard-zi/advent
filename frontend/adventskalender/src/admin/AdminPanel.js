@@ -83,7 +83,18 @@ const AdminPanel = () => {
   const clearCache = async () => {
     setClearingCache(true);
     try {
-      // Speichere alle wichtigen Spielstände und Interaktionen
+      // Rufe den Backend-Endpoint auf
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/admin/api/clear-cache`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          }
+        }
+      );
+
+      // Lokalen Cache leeren
       const statesToKeep = {
         openDoors: localStorage.getItem('openDoors'),
         doorStates: localStorage.getItem('doorStates'),
@@ -93,24 +104,14 @@ const AdminPanel = () => {
         adminToken: localStorage.getItem('adminToken')
       };
       
-      // Sammle alle Cache-Keys
-      const cacheKeys = Object.keys(localStorage).filter(key => 
-        key.startsWith('content-') || 
-        key.startsWith('door-preview-') ||
-        key.startsWith('calendarData') ||
-        key.startsWith('lastUpdate') ||
-        key.startsWith('preloadedContent')
-      );
+      localStorage.clear();
       
-      // Lösche Cache-Einträge
-      cacheKeys.forEach(key => localStorage.removeItem(key));
-      
-      // Stelle wichtige Daten wieder her
+      // Wichtige States wiederherstellen
       Object.entries(statesToKeep).forEach(([key, value]) => {
         if (value !== null) localStorage.setItem(key, value);
       });
 
-      // Lade Daten neu
+      // Daten neu laden
       await Promise.all([
         fetchDoors(),
         fetchAllContents(),

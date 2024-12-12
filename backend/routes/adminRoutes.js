@@ -12,6 +12,7 @@ const MediaService = require('../services/mediaService');
 const logger = require('../utils/logger');
 const authMiddleware = require('../middleware/authMiddleware');
 const paths = require('../config/paths');
+const cacheService = require('../services/cacheService');
 
 const router = express.Router();
 
@@ -265,6 +266,30 @@ router.delete('/api/content/:doorNumber', authMiddleware, async (req, res) => {
   } catch (error) {
     logger.error('Error in deletion process:', error);
     res.status(500).json({ error: 'Deletion failed: ' + error.message });
+  }
+});
+
+router.post('/api/clear-cache', authMiddleware, async (req, res) => {
+  try {
+    const newTimestamp = cacheService.invalidateCache();
+    res.json({ 
+      success: true, 
+      timestamp: newTimestamp,
+      message: 'Cache successfully invalidated'
+    });
+  } catch (error) {
+    logger.error('Error clearing cache:', error);
+    res.status(500).json({ error: 'Failed to clear cache' });
+  }
+});
+
+router.get('/api/cache-timestamp', async (req, res) => {
+  try {
+    const timestamp = cacheService.getLastResetTimestamp();
+    res.json({ timestamp });
+  } catch (error) {
+    logger.error('Error getting cache timestamp:', error);
+    res.status(500).json({ error: 'Failed to get cache timestamp' });
   }
 });
 
