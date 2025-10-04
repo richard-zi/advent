@@ -54,11 +54,9 @@ export default function Home() {
       const response = await fetch('/api/doors/status');
       const data = await response.json();
 
-      const doorsArray = Object.entries(data).map(([key, value]: [string, any]) => ({
+      const doorsArray: DoorContent[] = Object.entries(data).map(([key, value]: [string, any]) => ({
         day: parseInt(key),
-        type: value.isAvailable && value.hasContent ? 'locked' : 'not available yet',
-        hasContent: value.hasContent,
-        isAvailable: value.isAvailable,
+        type: (value.isAvailable && value.hasContent ? 'locked' : 'not available yet') as DoorContent['type'],
         data: null,
         text: null,
         thumbnail: null,

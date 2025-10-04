@@ -233,7 +233,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <div className="space-y-8">
               {/* Start Date */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                <label className="block text-white text-lg font-semibold mb-3 flex items-center gap-2">
+                <label className="flex items-center gap-2 text-white text-lg font-semibold mb-3">
                   <Calendar className="w-6 h-6 text-green-400" />
                   Startdatum (1. Türchen)
                 </label>
