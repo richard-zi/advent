@@ -3,6 +3,7 @@
 # dependencies
 frontend/adventskalender/node_modules
 backend/node_modules
+advent/node_modules
 adventskalender/.pnp
 .pnp.js
 
@@ -16,6 +17,8 @@ adventskalender/backend/helper.js
 frontend/adventskalender/build
 frontend/adventskalender/.env
 backend/.env
+advent/.next
+advent/out
 
 # misc
 adventskalender/.DS_Store
@@ -23,8 +26,18 @@ adventskalender/.env.local
 adventskalender/.env.development.local
 adventskalender/.env.test.local
 adventskalender/.env.production.local
+advent/.env*.local
+advent/.env
 
 adventskalender/npm-debug.log*
 adventskalender/yarn-debug.log*
 adventskalender/yarn-error.log*
 backend/config/admin-credentials.json
+advent/data/
+advent/public/media/
+advent/public/thumbnails/
+
+# Keep structure but ignore content
+!advent/data/.gitkeep
+!advent/public/media/.gitkeep
+!advent/public/thumbnails/.gitkeep
