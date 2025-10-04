@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { DoorContent } from '@/lib/types';
 import { X, Gift, Image as ImageIcon, Video, Music, FileText, MessageSquare, Puzzle, Clock, Frame } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ContentModalProps {
   door: DoorContent;
@@ -95,7 +96,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
           <div className={`prose prose-lg max-w-none ${
             darkMode ? 'prose-invert' : ''
           }`}>
-            <ReactMarkdown>{door.data || ''}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{door.data || ''}</ReactMarkdown>
           </div>
         );
 
@@ -246,7 +247,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
                 : 'bg-gray-50 border border-gray-200'
             }`}>
               <div className={`prose ${darkMode ? 'prose-invert' : ''}`}>
-                <ReactMarkdown>{door.text}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{door.text}</ReactMarkdown>
               </div>
             </div>
           )}

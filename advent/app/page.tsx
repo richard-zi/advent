@@ -5,6 +5,7 @@ import { DoorContent } from '@/lib/types';
 import { Gift, Star, Sparkles, Lock, Check } from 'lucide-react';
 import Snowfall from '@/components/Snowfall';
 import ContentModal from '@/components/ContentModal';
+import ProgressBar from '@/components/ProgressBar';
 
 export default function Home() {
   const [doors, setDoors] = useState<DoorContent[]>([]);
@@ -245,13 +246,16 @@ export default function Home() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 pb-16">
         {/* Subtitle */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <p className={`text-lg md:text-xl ${
             darkMode ? 'text-gray-300' : 'text-gray-700'
           }`}>
             {description}
           </p>
         </div>
+
+        {/* Progress Bar */}
+        <ProgressBar openedDoors={openedDoors} darkMode={darkMode} />
 
         {/* Calendar Grid - Balanced Masonry Layout */}
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 auto-rows-[minmax(90px,1fr)] gap-3 md:gap-4 max-w-7xl mx-auto p-4">
