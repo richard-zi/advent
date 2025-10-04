@@ -52,9 +52,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       console.error('Error loading settings:', error);
     }
 
-    // Load doors - use the main API endpoint that includes full content info
+    // Load doors - use the admin API endpoint that shows ALL content regardless of date
     try {
-      const doorsRes = await fetch('/api');
+      const doorsRes = await fetch('/api/admin/doors', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (doorsRes.ok) {
         const data = await doorsRes.json();
         setDoors(Object.entries(data).map(([key, value]: [string, any]) => ({
@@ -81,7 +83,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       });
 
       if (response.ok) {
-        alert('✅ Einstellungen gespeichert!');
+        alert('✅ Einstellungen gespeichert!\n\nHinweis: Das Startdatum wird innerhalb von 10 Sekunden im Adventskalender aktualisiert.');
+        // Reload doors to reflect new timing
+        await loadData();
       }
     } catch (error) {
       alert('❌ Fehler beim Speichern');
@@ -240,7 +244,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   className="w-full px-5 py-4 bg-white/10 border-2 border-white/30 rounded-xl text-white text-lg focus:outline-none focus:border-pink-400 transition-colors"
                 />
                 <p className="text-white/60 text-sm mt-3 leading-relaxed">
-                  📅 Türchen 1 wird an diesem Datum freigeschaltet. Jedes weitere Türchen öffnet sich einen Tag später.
+                  📅 Türchen 1 wird an diesem Datum (00:00 Uhr) freigeschaltet. Jedes weitere Türchen öffnet sich einen Tag später.<br />
+                  <span className="text-green-300">💡 Die Änderungen werden automatisch innerhalb von 10 Sekunden im Kalender sichtbar.</span><br />
+                  <span className="text-yellow-300">⚠️ Achte auf das Jahr! Für Tests im Oktober 2024 verwende: 2024-10-01</span>
                 </p>
               </div>
 
@@ -336,8 +342,111 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 {/* Current Content Info */}
                 {doors.find((d) => d.day === selectedDoor)?.type && doors.find((d) => d.day === selectedDoor)?.type !== 'not available yet' ? (
                   <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-400/50 rounded-xl p-6 mb-6">
-                    <p className="text-green-300 font-semibold text-lg mb-2">✅ Inhalt vorhanden</p>
-                    <p className="text-white/80">Typ: <span className="font-bold text-yellow-300">{doors.find((d) => d.day === selectedDoor)?.type}</span></p>
+                    <p className="text-green-300 font-semibold text-lg mb-3">✅ Inhalt vorhanden</p>
+                    <p className="text-white/80 mb-4">Typ: <span className="font-bold text-yellow-300">{doors.find((d) => d.day === selectedDoor)?.type}</span></p>
+
+                    {/* Inline Preview */}
+                    <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
+                      <p className="text-white/60 text-sm font-semibold mb-3">Vorschau:</p>
+
+                      {(() => {
+                        const currentDoor = doors.find((d) => d.day === selectedDoor);
+                        if (!currentDoor) return null;
+
+                        return (
+                          <>
+                            {/* Text Preview */}
+                            {currentDoor.type === 'text' && currentDoor.data && (
+                              <div className="text-white/90 text-sm bg-white/5 p-3 rounded-lg max-h-32 overflow-y-auto">
+                                <pre className="whitespace-pre-wrap font-sans">{currentDoor.data.substring(0, 200)}{currentDoor.data.length > 200 ? '...' : ''}</pre>
+                              </div>
+                            )}
+
+                            {/* Image Preview */}
+                            {currentDoor.type === 'image' && currentDoor.data && (
+                              <div className="bg-white/5 p-2 rounded-lg">
+                                <img
+                                  src={`/${currentDoor.data}`}
+                                  alt="Preview"
+                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            {/* GIF Preview */}
+                            {currentDoor.type === 'gif' && currentDoor.data && (
+                              <div className="bg-white/5 p-2 rounded-lg">
+                                <img
+                                  src={`/${currentDoor.data}`}
+                                  alt="Preview"
+                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            {/* Video Preview */}
+                            {currentDoor.type === 'video' && currentDoor.data && (
+                              <div className="bg-white/5 p-2 rounded-lg">
+                                <video
+                                  src={`/${currentDoor.data}`}
+                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
+                                  controls
+                                />
+                              </div>
+                            )}
+
+                            {/* Audio Preview */}
+                            {currentDoor.type === 'audio' && currentDoor.data && (
+                              <div className="bg-white/5 p-3 rounded-lg">
+                                <audio
+                                  src={`/${currentDoor.data}`}
+                                  controls
+                                  className="w-full"
+                                />
+                              </div>
+                            )}
+
+                            {/* iFrame Info */}
+                            {currentDoor.type === 'iframe' && currentDoor.data && (
+                              <div className="text-blue-300 text-sm bg-white/5 p-3 rounded-lg break-all">
+                                🔗 {currentDoor.data}
+                              </div>
+                            )}
+
+                            {/* Poll Info */}
+                            {currentDoor.type === 'poll' && (
+                              <div className="text-purple-300 text-sm bg-white/5 p-3 rounded-lg">
+                                📊 Umfrage konfiguriert
+                              </div>
+                            )}
+
+                            {/* Puzzle Info */}
+                            {currentDoor.type === 'puzzle' && (
+                              <div className="text-pink-300 text-sm bg-white/5 p-3 rounded-lg">
+                                🧩 Puzzle-Spiel konfiguriert
+                              </div>
+                            )}
+
+                            {/* Countdown Info */}
+                            {currentDoor.type === 'countdown' && (
+                              <div className="text-blue-300 text-sm bg-white/5 p-3 rounded-lg">
+                                ⏱️ Countdown aktiviert
+                              </div>
+                            )}
+
+                            {/* Optional Message */}
+                            {currentDoor.text && currentDoor.type !== 'text' && (
+                              <div className="mt-3 pt-3 border-t border-white/20">
+                                <p className="text-white/60 text-xs mb-2">Nachricht:</p>
+                                <div className="text-white/80 text-sm bg-white/5 p-3 rounded-lg max-h-24 overflow-y-auto">
+                                  <pre className="whitespace-pre-wrap font-sans">{currentDoor.text.substring(0, 150)}{currentDoor.text.length > 150 ? '...' : ''}</pre>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-white/5 border-2 border-white/20 rounded-xl p-8 text-center mb-6">

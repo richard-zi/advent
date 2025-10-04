@@ -51,6 +51,8 @@ export class SettingsService {
 
   static getStartDate(): Date {
     const settings = this.getSettings();
-    return new Date(settings.startDate);
+    const date = new Date(settings.startDate);
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
 }

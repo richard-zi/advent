@@ -50,12 +50,18 @@ export default function Home() {
 
   const fetchDoors = async () => {
     try {
-      const response = await fetch('/api');
+      // Only fetch door status, not content
+      const response = await fetch('/api/doors/status');
       const data = await response.json();
 
       const doorsArray = Object.entries(data).map(([key, value]: [string, any]) => ({
-        ...value,
-        day: parseInt(key)
+        day: parseInt(key),
+        type: value.isAvailable && value.hasContent ? 'locked' : 'not available yet',
+        hasContent: value.hasContent,
+        isAvailable: value.isAvailable,
+        data: null,
+        text: null,
+        thumbnail: null,
       }));
 
       setDoors(doorsArray);
@@ -79,7 +85,7 @@ export default function Home() {
     }
   };
 
-  const handleDoorClick = (door: DoorContent) => {
+  const handleDoorClick = async (door: DoorContent) => {
     if (!door.day || !startDate) return;
 
     const today = new Date();
@@ -90,9 +96,29 @@ export default function Home() {
     doorDate.setHours(0, 0, 0, 0);
 
     if (today >= doorDate && door.type !== 'not available yet') {
-      setSelectedDoor(door);
-      if (!openedDoors.includes(door.day)) {
-        setOpenedDoors([...openedDoors, door.day]);
+      // Fetch content only when door is clicked
+      try {
+        const response = await fetch(`/api/doors/${door.day}`);
+
+        if (response.status === 403) {
+          alert('Dieses Türchen ist noch nicht verfügbar!');
+          return;
+        }
+
+        if (!response.ok) {
+          alert('Fehler beim Laden des Inhalts');
+          return;
+        }
+
+        const content = await response.json();
+        setSelectedDoor({ ...content, day: door.day });
+
+        if (!openedDoors.includes(door.day)) {
+          setOpenedDoors([...openedDoors, door.day]);
+        }
+      } catch (error) {
+        console.error('Error loading door content:', error);
+        alert('Fehler beim Laden des Inhalts');
       }
     }
   };

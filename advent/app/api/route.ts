@@ -12,9 +12,9 @@ import type { DoorContent, DoorStates } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Cache for door data (1 minute TTL)
+// Cache for door data (10 seconds TTL for faster settings updates)
 let doorDataCache: { data: Record<string, DoorContent>; timestamp: number } | null = null;
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 10000; // 10 seconds
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
