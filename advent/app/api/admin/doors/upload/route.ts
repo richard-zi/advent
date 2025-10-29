@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         }
 
         const options = JSON.parse(optionsJson);
-        await PollService.createPoll(doorNumber, question, options);
+        PollService.savePollData(doorNumber, { question, options });
         await MediaService.savePollMarker(doorNumber);
         break;
       }

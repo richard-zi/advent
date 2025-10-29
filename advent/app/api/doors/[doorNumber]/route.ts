@@ -73,9 +73,14 @@ export async function GET(
     );
 
     let thumbnail: string | null = null;
-    if (mediaContent.type === 'video') {
-      const videoPath = path.join(paths.mediaDir, filename);
-      thumbnail = await ThumbnailService.getThumbnail(videoPath, doorNumber);
+    if (['video', 'image', 'gif'].includes(mediaContent.type)) {
+      const thumbnailPath = await ThumbnailService.generateThumbnail(
+        filePath,
+        mediaContent.type as 'video' | 'image' | 'gif'
+      );
+      if (thumbnailPath) {
+        thumbnail = `/thumbnails/${path.basename(thumbnailPath)}`;
+      }
     }
 
     const message = await MediaService.getMediaMessage(doorNumber);
