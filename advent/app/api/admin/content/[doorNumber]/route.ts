@@ -9,14 +9,28 @@ import { logger } from '@/lib/utils/logger';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
-  params: {
-    doorNumber: string;
+  params?: {
+    doorNumber?: string;
   };
 }
 
-async function handler(request: NextRequest, context: RouteParams) {
+async function handler(request: NextRequest, context: RouteParams = {}) {
   try {
-    const doorNumber = parseInt(context.params.doorNumber);
+    const doorParam = context.params?.doorNumber;
+    if (!doorParam) {
+      return NextResponse.json(
+        { error: 'Door number is required' },
+        { status: 400 }
+      );
+    }
+
+    const doorNumber = parseInt(doorParam, 10);
+    if (Number.isNaN(doorNumber)) {
+      return NextResponse.json(
+        { error: 'Door number must be numeric' },
+        { status: 400 }
+      );
+    }
 
     // Delete thumbnails
     const medium = await MediaService.getAllDoors();
