@@ -96,16 +96,48 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
           </div>
         );
 
-      case 'countdown':
+      case 'countdown': {
+        const meta = (door.meta ?? {}) as Record<string, unknown>;
+        const targetDate =
+          typeof meta?.targetDate === 'string' ? meta.targetDate : '';
+        const countdownText =
+          typeof meta?.text === 'string' ? meta.text : '';
+        const displayDate = (() => {
+          if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+            return null;
+          }
+          const [year, month, day] = targetDate.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        })();
+
         return (
-          <div className="text-center py-12">
-            <Clock className="w-24 h-24 mx-auto mb-6 text-christmas-gold" />
-            <h3 className="text-2xl font-semibold mb-4 text-foreground">
-              Countdown bis Weihnachten
-            </h3>
-            <CountdownTimer darkMode={darkMode} />
+          <div className="space-y-8 py-8 text-center">
+            <div>
+              <Clock className="mx-auto mb-6 h-24 w-24 text-christmas-gold" />
+              <h3 className="text-2xl font-semibold text-foreground">
+                Countdown
+              </h3>
+              {displayDate && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Bis zum {displayDate.toLocaleDateString('de-DE', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              )}
+            </div>
+            <CountdownTimer targetDate={targetDate} />
+            {countdownText && (
+              <div className="prose prose-sm mx-auto max-w-2xl text-left dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {countdownText}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         );
+      }
 
       case 'poll':
         return (
@@ -177,14 +209,25 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
   );
 }
 
-function CountdownTimer({ darkMode }: { darkMode: boolean }) {
+function CountdownTimer({ targetDate }: { targetDate?: string }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [hasReachedTarget, setHasReachedTarget] = useState(false);
+
+  const resolveTargetDate = () => {
+    if (targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      const [year, month, day] = targetDate.split('-').map(Number);
+      return new Date(year, month - 1, day, 0, 0, 0);
+    }
+
+    const now = new Date();
+    return new Date(now.getFullYear(), 11, 25);
+  };
 
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const christmas = new Date(new Date().getFullYear(), 11, 25);
+      const target = resolveTargetDate();
       const now = new Date();
-      const diff = christmas.getTime() - now.getTime();
+      const diff = target.getTime() - now.getTime();
 
       if (diff > 0) {
         setTimeLeft({
@@ -193,33 +236,45 @@ function CountdownTimer({ darkMode }: { darkMode: boolean }) {
           minutes: Math.floor((diff / 1000 / 60) % 60),
           seconds: Math.floor((diff / 1000) % 60),
         });
+        setHasReachedTarget(false);
+        return;
       }
+
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      setHasReachedTarget(true);
     };
 
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [targetDate]);
 
   return (
-    <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
-      {Object.entries(timeLeft).map(([unit, value]) => (
-        <div
-          key={unit}
-          className="bg-muted/50 p-6 rounded-lg border"
-        >
-          <div className="text-4xl font-semibold mb-2 text-christmas-gold">
-            {value}
+    <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
+      <div className="grid w-full grid-cols-4 gap-4">
+        {Object.entries(timeLeft).map(([unit, value]) => (
+          <div
+            key={unit}
+            className="rounded-lg border bg-muted/50 p-6"
+          >
+            <div className="mb-2 text-4xl font-semibold text-christmas-gold">
+              {value}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              {unit === 'days' && 'Tage'}
+              {unit === 'hours' && 'Stunden'}
+              {unit === 'minutes' && 'Minuten'}
+              {unit === 'seconds' && 'Sekunden'}
+            </div>
           </div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
-            {unit === 'days' && 'Tage'}
-            {unit === 'hours' && 'Stunden'}
-            {unit === 'minutes' && 'Minuten'}
-            {unit === 'seconds' && 'Sekunden'}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      {hasReachedTarget && (
+        <p className="text-sm font-medium text-christmas-gold">
+          🎉 Der große Moment ist da!
+        </p>
+      )}
     </div>
   );
 }

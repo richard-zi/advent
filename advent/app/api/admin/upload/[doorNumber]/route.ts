@@ -40,6 +40,12 @@ async function handler(request: NextRequest, context: RouteParams = {}) {
 
     const contentType = formData.get('contentType') as string;
     const message = formData.get('message') as string | null;
+    const countdownDateRaw = formData.get('countdownDate');
+    const countdownTextRaw = formData.get('countdownText');
+    const countdownDate =
+      typeof countdownDateRaw === 'string' ? countdownDateRaw.trim() : null;
+    const countdownText =
+      typeof countdownTextRaw === 'string' ? countdownTextRaw : '';
 
     // Delete old content first (including thumbnails)
     const medium = await MediaService.getAllDoors();
@@ -69,7 +75,16 @@ async function handler(request: NextRequest, context: RouteParams = {}) {
       }
 
       case 'countdown': {
-        await MediaService.saveCountdownContent(doorNumber);
+        if (!countdownDate || !/^\d{4}-\d{2}-\d{2}$/.test(countdownDate)) {
+          return NextResponse.json(
+            { error: 'Countdown date is required in format YYYY-MM-DD' },
+            { status: 400 }
+          );
+        }
+        await MediaService.saveCountdownContent(doorNumber, {
+          targetDate: countdownDate,
+          text: countdownText,
+        });
         break;
       }
 
@@ -133,7 +148,7 @@ async function handler(request: NextRequest, context: RouteParams = {}) {
     }
 
     // Save message if provided
-    if (message) {
+    if (message && contentType !== 'countdown') {
       await MediaService.updateMessage(doorNumber, message);
     }
 

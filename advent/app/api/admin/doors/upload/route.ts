@@ -20,6 +20,12 @@ export async function POST(request: NextRequest) {
     const contentType = formData.get('contentType') as string;
     const text = formData.get('text') as string | null;
     const file = formData.get('file') as File | null;
+    const countdownDateRaw = formData.get('countdownDate');
+    const countdownTextRaw = formData.get('countdownText');
+    const countdownDate =
+      typeof countdownDateRaw === 'string' ? countdownDateRaw.trim() : null;
+    const countdownText =
+      typeof countdownTextRaw === 'string' ? countdownTextRaw : '';
 
     if (!doorNumber || doorNumber < 1 || doorNumber > 24) {
       return NextResponse.json({ error: 'Invalid door number' }, { status: 400 });
@@ -99,7 +105,16 @@ export async function POST(request: NextRequest) {
       }
 
       case 'countdown': {
-        await MediaService.saveCountdownContent(doorNumber);
+        if (!countdownDate || !/^\d{4}-\d{2}-\d{2}$/.test(countdownDate)) {
+          return NextResponse.json(
+            { error: 'Countdown date is required in format YYYY-MM-DD' },
+            { status: 400 }
+          );
+        }
+        await MediaService.saveCountdownContent(doorNumber, {
+          targetDate: countdownDate,
+          text: countdownText,
+        });
         break;
       }
 
@@ -117,7 +132,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save message if provided
-    if (text && contentType !== 'text') {
+    if (text && contentType !== 'text' && contentType !== 'countdown') {
       await MediaService.updateMessage(doorNumber, text);
     }
 

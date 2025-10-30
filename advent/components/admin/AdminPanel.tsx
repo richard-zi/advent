@@ -1,7 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Settings, Upload, Calendar, Eye, LogOut, Save, Sparkles, Trash2, FileText, Image as ImageIcon, Video, Music, Repeat, PieChart, Link as LinkIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Upload,
+  Settings,
+  Calendar,
+  LogOut,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Music,
+  Repeat,
+  PieChart,
+  Link as LinkIcon,
+  Sparkles,
+  Trash2,
+  Save,
+} from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { DoorContent } from '@/lib/types';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -9,29 +42,118 @@ interface AdminPanelProps {
   csrfToken: string;
 }
 
+const textareaClasses =
+  'min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+
+const countdownDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+type ContentOption = {
+  value: string;
+  label: string;
+  description: string;
+  icon: typeof FileText;
+};
+
+type CountdownMeta = {
+  targetDate?: string;
+  text?: string;
+};
+
+type AdminDoor = DoorContent & { day: number };
+
+const contentTypeOptions: ContentOption[] = [
+  { value: 'text', label: 'Text', description: 'Markdown oder Klartext', icon: FileText },
+  { value: 'image', label: 'Bild', description: 'JPG, PNG, WebP', icon: ImageIcon },
+  { value: 'video', label: 'Video', description: 'MP4, WebM, MOV', icon: Video },
+  { value: 'audio', label: 'Audio', description: 'MP3, WAV, OGG', icon: Music },
+  { value: 'gif', label: 'GIF', description: 'Animierte GIFs', icon: Repeat },
+  { value: 'poll', label: 'Umfrage', description: 'Frage mit Antworten', icon: PieChart },
+  { value: 'puzzle', label: 'Puzzle', description: 'Bild-Puzzle', icon: Sparkles },
+  { value: 'iframe', label: 'iFrame', description: 'z.B. YouTube Links', icon: LinkIcon },
+  { value: 'countdown', label: 'Countdown', description: 'Ziel-Datum + Text', icon: Calendar },
+];
+
+const defaultSettings = {
+  startDate: '',
+  title: '',
+  description: '',
+};
+
+function getCountdownMeta(meta: unknown): CountdownMeta {
+  if (meta && typeof meta === 'object') {
+    const record = meta as Record<string, unknown>;
+    return {
+      targetDate: typeof record.targetDate === 'string' ? record.targetDate : undefined,
+      text: typeof record.text === 'string' ? record.text : undefined,
+    };
+  }
+  return {};
+}
+
+type MarkdownEditorProps = {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+};
+
+function MarkdownEditor({ id, value, onChange, placeholder }: MarkdownEditorProps) {
+  const [mode, setMode] = useState<'write' | 'preview'>('write');
+
+  return (
+    <div className="space-y-2">
+      <Tabs value={mode} onValueChange={(val) => setMode(val as 'write' | 'preview')} className="space-y-2">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="write">Bearbeiten</TabsTrigger>
+          <TabsTrigger value="preview">Vorschau</TabsTrigger>
+        </TabsList>
+        <TabsContent value="write">
+          <textarea
+            id={id}
+            className={textareaClasses}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+          />
+        </TabsContent>
+        <TabsContent value="preview">
+          <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-4 text-left dark:prose-invert">
+            {value ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+            ) : (
+              <p className="text-sm text-muted-foreground">Noch kein Inhalt</p>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'doors' | 'settings'>('doors');
-  const [settings, setSettings] = useState({
-    startDate: '',
-    title: '',
-    description: '',
-  });
-  const [selectedDoor, setSelectedDoor] = useState<number>(1);
-  const [doors, setDoors] = useState<any[]>([]);
-  const [previewContent, setPreviewContent] = useState<any>(null);
+  const [settings, setSettings] = useState(defaultSettings);
+  const [selectedDoor, setSelectedDoor] = useState(1);
+  const [doors, setDoors] = useState<AdminDoor[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [selectedContentType, setSelectedContentType] = useState<string>('text');
+  const [selectedContentType, setSelectedContentType] = useState('text');
   const [textContent, setTextContent] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [iframeUrl, setIframeUrl] = useState('');
+  const [countdownDate, setCountdownDate] = useState('');
+  const [countdownText, setCountdownText] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [csrfToken]);
+  const currentDoor = useMemo(
+    () => doors.find((door) => door.day === selectedDoor) || null,
+    [doors, selectedDoor]
+  );
+  const hasExistingContent = Boolean(
+    currentDoor && currentDoor.type && currentDoor.type !== 'not available yet'
+  );
 
   const handleUnauthorized = (status: number) => {
     if (status === 401 || status === 403) {
@@ -42,50 +164,102 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
     return false;
   };
 
-  useEffect(() => {
-    // Reset form when door selection changes
-    resetForm();
-  }, [selectedDoor]);
+  const resetForm = () => {
+    setSelectedContentType('text');
+    setTextContent('');
+    setMessageContent('');
+    setFile(null);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+    setIframeUrl('');
+    setCountdownDate(settings.startDate || '');
+    setCountdownText('');
+  };
 
-  const loadData = async () => {
-    if (!csrfToken) {
+  useEffect(() => {
+    const doorMeta = currentDoor?.meta;
+
+    if (!currentDoor || currentDoor.type === 'not available yet') {
+      resetForm();
       return;
     }
 
-    try {
-      const settingsRes = await fetch('/api/admin/settings', {
-        credentials: 'include',
-      });
-      if (handleUnauthorized(settingsRes.status)) {
-        return;
-      }
-      if (settingsRes.ok) {
-        const data = await settingsRes.json();
-        setSettings(data);
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
+    setSelectedContentType(currentDoor.type);
+
+    if (currentDoor.type === 'text') {
+      setTextContent(currentDoor.data || '');
+      setMessageContent('');
+    } else {
+      setTextContent('');
+      setMessageContent(currentDoor.text || '');
     }
 
-    // Load doors - use the admin API endpoint that shows ALL content regardless of date
-    try {
-      const doorsRes = await fetch('/api/admin/doors', {
-        credentials: 'include',
-      });
-      if (handleUnauthorized(doorsRes.status)) {
+    if (currentDoor.type === 'iframe') {
+      setIframeUrl(currentDoor.data || '');
+    } else {
+      setIframeUrl('');
+    }
+
+    if (currentDoor.type === 'countdown') {
+      const meta = getCountdownMeta(doorMeta);
+      setCountdownDate(meta.targetDate || settings.startDate || '');
+      setCountdownText(meta.text || '');
+    } else {
+      setCountdownDate(settings.startDate || '');
+      setCountdownText('');
+    }
+
+    setPollQuestion('');
+    setPollOptions(['', '']);
+  }, [currentDoor, settings.startDate]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!csrfToken) {
         return;
       }
-      if (doorsRes.ok) {
-        const data = await doorsRes.json();
-        setDoors(Object.entries(data).map(([key, value]: [string, any]) => ({
-          ...value,
-          day: parseInt(key)
-        })));
+
+      try {
+        const settingsRes = await fetch('/api/admin/settings', {
+          credentials: 'include',
+        });
+        if (handleUnauthorized(settingsRes.status)) {
+          return;
+        }
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          setSettings({
+            startDate: data.startDate || '',
+            title: data.title || '',
+            description: data.description || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
       }
-    } catch (error) {
-      console.error('Error loading doors:', error);
-    }
-  };
+
+      try {
+        const doorsRes = await fetch('/api/admin/doors', {
+          credentials: 'include',
+        });
+        if (handleUnauthorized(doorsRes.status)) {
+          return;
+        }
+        if (doorsRes.ok) {
+          const data = await doorsRes.json();
+          const mapped = Object.entries(data).map(([key, value]) => ({
+            ...(value as DoorContent),
+            day: parseInt(key, 10),
+          })) as AdminDoor[];
+          setDoors(mapped.sort((a, b) => a.day - b.day));
+        }
+      } catch (error) {
+        console.error('Error loading doors:', error);
+      }
+    };
+
+    loadData();
+  }, [csrfToken]);
 
   const handleSaveSettings = async () => {
     setSaving(true);
@@ -105,9 +279,9 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
       }
 
       if (response.ok) {
-        alert('✅ Einstellungen gespeichert!\n\nHinweis: Das Startdatum wird innerhalb von 10 Sekunden im Adventskalender aktualisiert.');
-        // Reload doors to reflect new timing
-        await loadData();
+        alert('✅ Einstellungen gespeichert! Das Startdatum aktualisiert sich innerhalb weniger Sekunden im Kalender.');
+      } else {
+        alert('❌ Fehler beim Speichern');
       }
     } catch (error) {
       alert('❌ Fehler beim Speichern');
@@ -117,6 +291,41 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
   };
 
   const handleUploadContent = async () => {
+    if (uploading) return;
+
+    if (selectedContentType === 'text' && !textContent.trim()) {
+      alert('Bitte gib einen Text ein.');
+      return;
+    }
+
+    if (
+      ['image', 'video', 'audio', 'gif', 'puzzle'].includes(selectedContentType) &&
+      !file
+    ) {
+      alert('Bitte wähle eine Datei aus.');
+      return;
+    }
+
+    if (selectedContentType === 'poll') {
+      const trimmedOptions = pollOptions.filter((option) => option.trim());
+      if (!pollQuestion.trim() || trimmedOptions.length < 2) {
+        alert('Bitte gib eine Frage und mindestens zwei Antwortoptionen ein.');
+        return;
+      }
+    }
+
+    if (selectedContentType === 'iframe' && !iframeUrl.trim()) {
+      alert('Bitte gib eine gültige URL ein.');
+      return;
+    }
+
+    if (selectedContentType === 'countdown') {
+      if (!countdownDate || !countdownDateRegex.test(countdownDate)) {
+        alert('Bitte wähle ein gültiges Countdown-Datum (YYYY-MM-DD).');
+        return;
+      }
+    }
+
     setUploading(true);
 
     try {
@@ -128,16 +337,17 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
         formData.append('text', textContent);
       } else if (selectedContentType === 'poll') {
         formData.append('pollQuestion', pollQuestion);
-        formData.append('pollOptions', JSON.stringify(pollOptions.filter(o => o.trim())));
+        formData.append('pollOptions', JSON.stringify(pollOptions.filter((option) => option.trim())));
       } else if (selectedContentType === 'iframe') {
         formData.append('iframeUrl', iframeUrl);
       } else if (selectedContentType === 'countdown') {
-        // No additional data needed
+        formData.append('countdownDate', countdownDate);
+        formData.append('countdownText', countdownText);
       } else if (file) {
         formData.append('file', file);
       }
 
-      if (messageContent && selectedContentType !== 'text') {
+      if (messageContent && !['text', 'countdown'].includes(selectedContentType)) {
         formData.append('text', messageContent);
       }
 
@@ -155,22 +365,40 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
       }
 
       if (response.ok) {
-        alert('✅ Inhalt hochgeladen!');
+        alert('✅ Inhalt gespeichert!');
         resetForm();
-        await loadData();
+        const doorsRes = await fetch('/api/admin/doors', {
+          credentials: 'include',
+        });
+        if (handleUnauthorized(doorsRes.status)) {
+          return;
+        }
+        if (doorsRes.ok) {
+          const data = await doorsRes.json();
+          const mapped = Object.entries(data).map(([key, value]) => ({
+            ...(value as DoorContent),
+            day: parseInt(key, 10),
+          })) as AdminDoor[];
+          setDoors(mapped.sort((a, b) => a.day - b.day));
+        }
       } else {
         const data = await response.json();
-        alert(`❌ Fehler: ${data.error}`);
+        alert(`❌ Fehler: ${data.error || 'Upload fehlgeschlagen'}`);
       }
     } catch (error) {
+      console.error('Upload error:', error);
       alert('❌ Fehler beim Hochladen');
-      console.error(error);
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteContent = async () => {
+    if (!hasExistingContent) {
+      alert('Für dieses Türchen ist kein Inhalt gespeichert.');
+      return;
+    }
+
     if (!confirm('Möchtest du den Inhalt wirklich löschen?')) return;
 
     try {
@@ -188,591 +416,467 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
       if (response.ok) {
         alert('✅ Inhalt gelöscht!');
-        await loadData();
+        resetForm();
+        setDoors((prev) =>
+          prev
+            .map((door) =>
+              door.day === selectedDoor
+                ? { ...door, type: 'not available yet', data: null, text: null, thumbnail: null, meta: null }
+                : door
+            )
+        );
+      } else {
+        alert('❌ Inhalt konnte nicht gelöscht werden');
       }
     } catch (error) {
       alert('❌ Fehler beim Löschen');
     }
   };
 
-  const resetForm = () => {
-    setTextContent('');
-    setMessageContent('');
-    setFile(null);
-    setPollQuestion('');
-    setPollOptions(['', '']);
-    setIframeUrl('');
+  const renderPreview = () => {
+    if (!currentDoor || !hasExistingContent) {
+      return (
+        <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground">
+          Noch kein Inhalt gespeichert.
+        </div>
+      );
+    }
+
+    switch (currentDoor.type) {
+      case 'text':
+        return (
+          <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-4 dark:prose-invert">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.data || ''}</ReactMarkdown>
+          </div>
+        );
+      case 'image':
+      case 'gif':
+        return (
+          <div className="overflow-hidden rounded-md border">
+            <img src={currentDoor.data || ''} alt="Türchen Vorschau" className="max-h-80 w-full object-contain" />
+          </div>
+        );
+      case 'video':
+        return (
+          <div className="overflow-hidden rounded-md border">
+            <video src={currentDoor.data || ''} controls className="max-h-80 w-full" preload="metadata" />
+          </div>
+        );
+      case 'audio':
+        return (
+          <div className="rounded-md border bg-muted/30 p-4">
+            <audio src={currentDoor.data || ''} controls className="w-full" />
+          </div>
+        );
+      case 'iframe':
+        return (
+          <div className="rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Eingebettete URL:</span>
+            <div className="mt-1 break-words text-primary">{currentDoor.data}</div>
+          </div>
+        );
+      case 'puzzle':
+        return (
+          <div className="overflow-hidden rounded-md border">
+            <img src={currentDoor.data || ''} alt="Puzzle Vorschau" className="max-h-80 w-full object-contain" />
+          </div>
+        );
+      case 'countdown': {
+        const meta = getCountdownMeta(currentDoor.meta);
+        const displayDate = (() => {
+          if (!meta.targetDate || !countdownDateRegex.test(meta.targetDate)) {
+            return null;
+          }
+          const [year, month, day] = meta.targetDate.split('-').map(Number);
+          return new Date(year, month - 1, day).toLocaleDateString('de-DE', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
+        })();
+        return (
+          <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground">
+            {displayDate && <p>Zieldatum: {displayDate}</p>}
+            {meta.text && (
+              <div className="prose prose-sm max-w-none text-left text-foreground dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{meta.text}</ReactMarkdown>
+              </div>
+            )}
+            {!meta.text && !displayDate && <p>Noch keine Details hinterlegt.</p>}
+          </div>
+        );
+      }
+      case 'poll': {
+        let pollQuestionPreview = '';
+        let pollOptionsPreview: string[] = [];
+        try {
+          if (currentDoor.data) {
+            const parsed = JSON.parse(currentDoor.data) as Record<string, unknown>;
+            const pollData = parsed.question as { question?: string; options?: string[] } | undefined;
+            pollQuestionPreview = pollData?.question || '';
+            if (Array.isArray(pollData?.options)) {
+              pollOptionsPreview = pollData.options as string[];
+            }
+          }
+        } catch {
+          // ignore
+        }
+        return (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-4 text-left text-sm">
+            <p className="font-medium text-foreground">Umfrage konfiguriert</p>
+            {pollQuestionPreview && (
+              <p className="text-muted-foreground">Frage: {pollQuestionPreview}</p>
+            )}
+            {pollOptionsPreview.length > 0 && (
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                {pollOptionsPreview.map((option, index) => (
+                  <li key={index}>{option}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }
+      default:
+        return (
+          <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+            Vorschau für diesen Typ ist nicht verfügbar.
+          </div>
+        );
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
-      {/* Header */}
-      <header className="bg-black/20 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-7 h-7 text-yellow-400" />
-              Admin Dashboard
-            </h1>
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/50 rounded-lg text-white transition-all hover:scale-105"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-primary/10 p-2 text-primary">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+              <p className="text-sm text-muted-foreground">
+                Inhalte, Umfragen und Einstellungen verwalten
+              </p>
+            </div>
           </div>
+          <Button variant="outline" onClick={onLogout} className="gap-2 self-start sm:self-auto">
+            <LogOut className="h-4 w-4" /> Logout
+          </Button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex gap-3 mb-6">
-          <button
-            onClick={() => setActiveTab('doors')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all transform hover:scale-105 ${
-              activeTab === 'doors'
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg shadow-purple-500/50 text-white'
-                : 'bg-white/10 border border-white/20 text-white/70 hover:bg-white/15'
-            }`}
-          >
-            <Upload className="w-5 h-5" />
-            Türchen verwalten
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all transform hover:scale-105 ${
-              activeTab === 'settings'
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg shadow-purple-500/50 text-white'
-                : 'bg-white/10 border border-white/20 text-white/70 hover:bg-white/15'
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            Einstellungen
-          </button>
-        </div>
+      <main className="container mx-auto space-y-6 py-8">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'doors' | 'settings')}>
+          <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+            <TabsTrigger value="doors" className="gap-2">
+              <Upload className="h-4 w-4" /> Türchen
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="h-4 w-4" /> Einstellungen
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Settings Tab */}
-        {activeTab === 'settings' && (
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
-            <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
-              <Settings className="w-8 h-8 text-yellow-400" />
-              Kalender-Einstellungen
-            </h2>
+          <TabsContent value="doors" className="space-y-6 pt-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Türchen auswählen</CardTitle>
+                  <CardDescription>Wähle ein Türchen, um den Inhalt zu bearbeiten.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {Array.from({ length: 24 }, (_, idx) => idx + 1).map((day) => {
+                      const door = doors.find((d) => d.day === day);
+                      const filled = Boolean(door && door.type && door.type !== 'not available yet');
+                      const isActive = selectedDoor === day;
 
-            <div className="space-y-8">
-              {/* Start Date */}
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                <label className="flex items-center gap-2 text-white text-lg font-semibold mb-3">
-                  <Calendar className="w-6 h-6 text-green-400" />
-                  Startdatum (1. Türchen)
-                </label>
-                <input
-                  type="date"
-                  value={settings.startDate}
-                  onChange={(e) => setSettings({ ...settings, startDate: e.target.value })}
-                  className="w-full px-5 py-4 bg-white/10 border-2 border-white/30 rounded-xl text-white text-lg focus:outline-none focus:border-pink-400 transition-colors"
-                />
-                <p className="text-white/60 text-sm mt-3 leading-relaxed">
-                  📅 Türchen 1 wird an diesem Datum (00:00 Uhr) freigeschaltet. Jedes weitere Türchen öffnet sich einen Tag später.<br />
-                  <span className="text-green-300">💡 Die Änderungen werden automatisch innerhalb von 10 Sekunden im Kalender sichtbar.</span><br />
-                  <span className="text-yellow-300">⚠️ Achte auf das Jahr! Für Tests im Oktober 2024 verwende: 2024-10-01</span>
-                </p>
-              </div>
-
-              {/* Title */}
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                <label className="block text-white text-lg font-semibold mb-3">Titel</label>
-                <input
-                  type="text"
-                  value={settings.title}
-                  onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                  className="w-full px-5 py-4 bg-white/10 border-2 border-white/30 rounded-xl text-white text-lg focus:outline-none focus:border-pink-400 transition-colors"
-                  placeholder="Adventskalender 2024"
-                />
-              </div>
-
-              {/* Description */}
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                <label className="block text-white text-lg font-semibold mb-3">Beschreibung</label>
-                <textarea
-                  value={settings.description}
-                  onChange={(e) => setSettings({ ...settings, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-5 py-4 bg-white/10 border-2 border-white/30 rounded-xl text-white text-lg focus:outline-none focus:border-pink-400 transition-colors resize-none"
-                  placeholder="Öffne jeden Tag ein neues Türchen..."
-                />
-              </div>
-
-              {/* Save Button */}
-              <button
-                onClick={handleSaveSettings}
-                disabled={saving}
-                className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-xl text-white font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-6 h-6" />
-                {saving ? 'Speichert...' : 'Einstellungen speichern'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Doors Tab */}
-        {activeTab === 'doors' && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Door Selector */}
-            <div className="xl:col-span-1">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold text-white mb-5">Türchen auswählen</h3>
-                <div className="grid grid-cols-4 gap-3">
-                  {Array.from({ length: 24 }, (_, i) => i + 1).map((day) => {
-                    const door = doors.find((d) => d.day === day);
-                    const hasContent = door?.type && door.type !== 'not available yet';
-
-                    return (
-                      <button
-                        key={day}
-                        onClick={() => setSelectedDoor(day)}
-                        className={`aspect-square rounded-xl flex items-center justify-center text-lg font-bold transition-all transform hover:scale-110 ${
-                          selectedDoor === day
-                            ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-110'
-                            : hasContent
-                            ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border-2 border-green-400/60 text-green-200 hover:border-green-300'
-                            : 'bg-white/5 border-2 border-white/20 text-white/50 hover:bg-white/10 hover:border-white/40'
-                        }`}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="xl:col-span-2">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <span className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1 rounded-lg">
-                      Türchen {selectedDoor}
-                    </span>
-                  </h3>
-                  {doors.find((d) => d.day === selectedDoor)?.type && doors.find((d) => d.day === selectedDoor)?.type !== 'not available yet' && (
-                    <button
-                      onClick={() => setPreviewContent(doors.find((d) => d.day === selectedDoor))}
-                      className="flex items-center gap-2 px-5 py-3 bg-blue-500/20 border-2 border-blue-400/50 rounded-xl text-blue-300 hover:bg-blue-500/30 transition-all hover:scale-105"
-                    >
-                      <Eye className="w-5 h-5" />
-                      Vorschau
-                    </button>
-                  )}
-                </div>
-
-                {/* Current Content Info */}
-                {doors.find((d) => d.day === selectedDoor)?.type && doors.find((d) => d.day === selectedDoor)?.type !== 'not available yet' ? (
-                  <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-400/50 rounded-xl p-6 mb-6">
-                    <p className="text-green-300 font-semibold text-lg mb-3">✅ Inhalt vorhanden</p>
-                    <p className="text-white/80 mb-4">Typ: <span className="font-bold text-yellow-300">{doors.find((d) => d.day === selectedDoor)?.type}</span></p>
-
-                    {/* Inline Preview */}
-                    <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
-                      <p className="text-white/60 text-sm font-semibold mb-3">Vorschau:</p>
-
-                      {(() => {
-                        const currentDoor = doors.find((d) => d.day === selectedDoor);
-                        if (!currentDoor) return null;
-
-                        return (
-                          <>
-                            {/* Text Preview */}
-                            {currentDoor.type === 'text' && currentDoor.data && (
-                              <div className="text-white/90 text-sm bg-white/5 p-3 rounded-lg max-h-32 overflow-y-auto">
-                                <pre className="whitespace-pre-wrap font-sans">{currentDoor.data.substring(0, 200)}{currentDoor.data.length > 200 ? '...' : ''}</pre>
-                              </div>
-                            )}
-
-                            {/* Image Preview */}
-                            {currentDoor.type === 'image' && currentDoor.data && (
-                              <div className="bg-white/5 p-2 rounded-lg">
-                                <img
-                                  src={currentDoor.data}
-                                  alt="Preview"
-                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
-                                />
-                              </div>
-                            )}
-
-                            {/* GIF Preview */}
-                            {currentDoor.type === 'gif' && currentDoor.data && (
-                              <div className="bg-white/5 p-2 rounded-lg">
-                                <img
-                                  src={currentDoor.data}
-                                  alt="Preview"
-                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
-                                />
-                              </div>
-                            )}
-
-                            {/* Video Preview */}
-                            {currentDoor.type === 'video' && currentDoor.data && (
-                              <div className="bg-white/5 p-2 rounded-lg">
-                                <video
-                                  src={currentDoor.data}
-                                  className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
-                                  controls
-                                />
-                              </div>
-                            )}
-
-                            {/* Audio Preview */}
-                            {currentDoor.type === 'audio' && currentDoor.data && (
-                              <div className="bg-white/5 p-3 rounded-lg">
-                                <audio
-                                  src={currentDoor.data}
-                                  controls
-                                  className="w-full"
-                                />
-                              </div>
-                            )}
-
-                            {/* iFrame Info */}
-                            {currentDoor.type === 'iframe' && currentDoor.data && (
-                              <div className="text-blue-300 text-sm bg-white/5 p-3 rounded-lg break-all">
-                                🔗 {currentDoor.data}
-                              </div>
-                            )}
-
-                            {/* Poll Info */}
-                            {currentDoor.type === 'poll' && (
-                              <div className="text-purple-300 text-sm bg-white/5 p-3 rounded-lg">
-                                📊 Umfrage konfiguriert
-                              </div>
-                            )}
-
-                            {/* Puzzle Info */}
-                            {currentDoor.type === 'puzzle' && (
-                              <div className="text-pink-300 text-sm bg-white/5 p-3 rounded-lg">
-                                🧩 Puzzle-Spiel konfiguriert
-                              </div>
-                            )}
-
-                            {/* Countdown Info */}
-                            {currentDoor.type === 'countdown' && (
-                              <div className="text-blue-300 text-sm bg-white/5 p-3 rounded-lg">
-                                ⏱️ Countdown aktiviert
-                              </div>
-                            )}
-
-                            {/* Optional Message */}
-                            {currentDoor.text && currentDoor.type !== 'text' && (
-                              <div className="mt-3 pt-3 border-t border-white/20">
-                                <p className="text-white/60 text-xs mb-2">Nachricht:</p>
-                                <div className="text-white/80 text-sm bg-white/5 p-3 rounded-lg max-h-24 overflow-y-auto">
-                                  <pre className="whitespace-pre-wrap font-sans">{currentDoor.text.substring(0, 150)}{currentDoor.text.length > 150 ? '...' : ''}</pre>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
+                      return (
+                        <Button
+                          key={day}
+                          type="button"
+                          variant={isActive ? 'default' : filled ? 'secondary' : 'outline'}
+                          className={`h-12 items-center justify-center rounded-md p-0 text-sm font-semibold ${
+                            isActive ? '' : filled ? 'text-foreground' : 'text-muted-foreground'
+                          }`}
+                          onClick={() => setSelectedDoor(day)}
+                        >
+                          {day}
+                        </Button>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div className="bg-white/5 border-2 border-white/20 rounded-xl p-8 text-center mb-6">
-                    <Upload className="w-16 h-16 mx-auto mb-4 text-white/30" />
-                    <p className="text-white/50 text-lg">Noch kein Inhalt vorhanden</p>
-                  </div>
-                )}
+                </CardContent>
+              </Card>
 
-                {/* Content Type Selector */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-6">
-                  <label className="block text-white text-lg font-semibold mb-4">Content-Typ auswählen</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { type: 'text', label: 'Text', icon: FileText },
-                      { type: 'image', label: 'Bild', icon: ImageIcon },
-                      { type: 'video', label: 'Video', icon: Video },
-                      { type: 'audio', label: 'Audio', icon: Music },
-                      { type: 'gif', label: 'GIF', icon: Repeat },
-                      { type: 'poll', label: 'Umfrage', icon: PieChart },
-                      { type: 'puzzle', label: 'Puzzle', icon: Sparkles },
-                      { type: 'iframe', label: 'iFrame', icon: LinkIcon },
-                      { type: 'countdown', label: 'Countdown', icon: Calendar },
-                    ].map(({ type, label, icon: Icon }) => (
-                      <button
-                        key={type}
-                        onClick={() => setSelectedContentType(type)}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all ${
-                          selectedContentType === type
-                            ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-105'
-                            : 'bg-white/10 text-white/70 hover:bg-white/15'
-                        }`}
-                      >
-                        <Icon className="w-6 h-6" />
-                        <span className="text-sm font-medium">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Content Input Forms */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-6">
-                  {selectedContentType === 'text' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                      <label className="block text-white text-lg font-semibold mb-3">Text-Inhalt (Markdown unterstützt)</label>
-                      <textarea
-                        value={textContent}
-                        onChange={(e) => setTextContent(e.target.value)}
-                        rows={10}
-                        className="w-full px-4 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white focus:outline-none focus:border-pink-400 transition-colors resize-none font-mono"
-                        placeholder="# Überschrift\n\n**Fettgedruckt** und *kursiv*\n\n- Listenpunkt 1\n- Listenpunkt 2"
-                      />
+                      <CardTitle>Aktueller Inhalt</CardTitle>
+                      <CardDescription>Vorschau für Türchen {selectedDoor}</CardDescription>
                     </div>
-                  )}
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="text-sm font-semibold">{selectedDoor}</AvatarFallback>
+                    </Avatar>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {hasExistingContent && currentDoor ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="capitalize">
+                            {currentDoor.type}
+                          </Badge>
+                          {currentDoor.thumbnail && (
+                            <Badge variant="secondary">Thumbnail vorhanden</Badge>
+                          )}
+                        </div>
+                        {renderPreview()}
+                        {currentDoor.text && (
+                          <div className="space-y-2 text-sm">
+                            <Separator />
+                            <p className="font-medium text-muted-foreground">Zusätzliche Nachricht</p>
+                            <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-3 dark:prose-invert">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.text}</ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      renderPreview()
+                    )}
+                  </CardContent>
+                </Card>
 
-                  {(selectedContentType === 'image' || selectedContentType === 'video' || selectedContentType === 'audio' || selectedContentType === 'gif' || selectedContentType === 'puzzle') && (
-                    <div>
-                      <label className="block text-white text-lg font-semibold mb-3">
-                        {selectedContentType === 'puzzle' ? 'Puzzle-Bild hochladen' : 'Datei hochladen'}
-                      </label>
-                      <input
-                        type="file"
-                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                        accept={
-                          selectedContentType === 'image' || selectedContentType === 'puzzle' ? 'image/*' :
-                          selectedContentType === 'video' ? 'video/*' :
-                          selectedContentType === 'audio' ? 'audio/*' :
-                          selectedContentType === 'gif' ? 'image/gif' : '*'
-                        }
-                        className="w-full px-4 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white hover:file:bg-purple-600"
-                      />
-                      {file && (
-                        <p className="text-green-300 mt-2">✓ {file.name}</p>
-                      )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Inhalt bearbeiten</CardTitle>
+                    <CardDescription>Wähle Format und gib neue Inhalte ein.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-3">
+                      <Label>Content-Typ</Label>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {contentTypeOptions.map((option) => {
+                          const Icon = option.icon;
+                          const isActive = selectedContentType === option.value;
+                          return (
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={isActive ? 'default' : 'outline'}
+                              className="justify-start gap-3"
+                              onClick={() => setSelectedContentType(option.value)}
+                            >
+                              <Icon className="h-4 w-4" />
+                              <div className="text-left text-xs">
+                                <p className="font-semibold leading-tight">{option.label}</p>
+                                <p className="text-muted-foreground">{option.description}</p>
+                              </div>
+                            </Button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
 
-                  {selectedContentType === 'poll' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-white text-lg font-semibold mb-3">Umfrage-Frage</label>
-                        <input
-                          type="text"
-                          value={pollQuestion}
-                          onChange={(e) => setPollQuestion(e.target.value)}
-                          className="w-full px-4 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white focus:outline-none focus:border-pink-400"
-                          placeholder="Was ist deine Lieblingsfarbe?"
+                    {selectedContentType === 'text' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="text-content">Text (Markdown möglich)</Label>
+                        <MarkdownEditor
+                          id="text-content"
+                          value={textContent}
+                          onChange={setTextContent}
+                          placeholder="Schreibe hier den Inhalt..."
                         />
                       </div>
-                      <div>
-                        <label className="block text-white text-lg font-semibold mb-3">Antwortmöglichkeiten</label>
-                        {pollOptions.map((option, index) => (
-                          <div key={index} className="flex gap-2 mb-2">
-                            <input
-                              type="text"
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...pollOptions];
-                                newOptions[index] = e.target.value;
-                                setPollOptions(newOptions);
-                              }}
-                              className="flex-1 px-4 py-2 bg-white/10 border-2 border-white/30 rounded-xl text-white focus:outline-none focus:border-pink-400"
-                              placeholder={`Option ${index + 1}`}
-                            />
-                            {pollOptions.length > 2 && (
-                              <button
-                                onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
-                                className="px-3 py-2 bg-red-500/20 border-2 border-red-400/50 rounded-xl text-red-300 hover:bg-red-500/30"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => setPollOptions([...pollOptions, ''])}
-                          className="mt-2 px-4 py-2 bg-green-500/20 border-2 border-green-400/50 rounded-xl text-green-300 hover:bg-green-500/30"
-                        >
-                          + Option hinzufügen
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedContentType === 'iframe' && (
-                    <div>
-                      <label className="block text-white text-lg font-semibold mb-3">URL einbetten</label>
-                      <input
-                        type="url"
-                        value={iframeUrl}
-                        onChange={(e) => setIframeUrl(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white focus:outline-none focus:border-pink-400"
-                        placeholder="https://www.youtube.com/embed/..."
-                      />
-                    </div>
-                  )}
-
-                  {selectedContentType === 'countdown' && (
-                    <div className="bg-blue-500/10 border-2 border-blue-400/30 rounded-xl p-6 text-center">
-                      <Calendar className="w-16 h-16 mx-auto mb-4 text-blue-300" />
-                      <p className="text-blue-300 text-lg">
-                        Countdown bis Weihnachten wird automatisch angezeigt
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Optional Message for non-text types */}
-                  {selectedContentType !== 'text' && selectedContentType !== 'countdown' && (
-                    <div>
-                      <label className="block text-white text-lg font-semibold mb-3">
-                        Optionale Nachricht (Markdown)
-                      </label>
-                      <textarea
-                        value={messageContent}
-                        onChange={(e) => setMessageContent(e.target.value)}
-                        rows={4}
-                        className="w-full px-4 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white focus:outline-none focus:border-pink-400 transition-colors resize-none font-mono"
-                        placeholder="Eine zusätzliche Nachricht zum Inhalt..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={handleUploadContent}
-                      disabled={uploading}
-                      className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-xl text-white font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Upload className="w-6 h-6" />
-                      {uploading ? 'Hochladen...' : 'Inhalt speichern'}
-                    </button>
-                    {doors.find((d) => d.day === selectedDoor)?.type && doors.find((d) => d.day === selectedDoor)?.type !== 'not available yet' && (
-                      <button
-                        onClick={handleDeleteContent}
-                        className="px-6 py-4 bg-red-500/20 border-2 border-red-400/50 rounded-xl text-red-300 hover:bg-red-500/30 transition-all transform hover:scale-105"
-                      >
-                        <Trash2 className="w-6 h-6" />
-                      </button>
                     )}
-                  </div>
-                </div>
+
+                    {['image', 'video', 'audio', 'gif', 'puzzle'].includes(selectedContentType) && (
+                      <div className="space-y-2">
+                        <Label htmlFor="file-upload">Datei hochladen</Label>
+                        <Input
+                          id="file-upload"
+                          type="file"
+                          accept={
+                            selectedContentType === 'image'
+                              ? 'image/*'
+                              : selectedContentType === 'video'
+                              ? 'video/*'
+                              : selectedContentType === 'audio'
+                              ? 'audio/*'
+                              : selectedContentType === 'gif'
+                              ? 'image/gif'
+                              : 'image/*'
+                          }
+                          onChange={(event) => setFile(event.target.files?.[0] || null)}
+                        />
+                      </div>
+                    )}
+
+                    {selectedContentType === 'poll' && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="poll-question">Frage</Label>
+                          <Input
+                            id="poll-question"
+                            value={pollQuestion}
+                            onChange={(event) => setPollQuestion(event.target.value)}
+                            placeholder="Was möchtest du fragen?"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Antwortmöglichkeiten</Label>
+                          {pollOptions.map((option, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <Input
+                                value={option}
+                                onChange={(event) => {
+                                  const updated = [...pollOptions];
+                                  updated[index] = event.target.value;
+                                  setPollOptions(updated);
+                                }}
+                                placeholder={`Option ${index + 1}`}
+                              />
+                              {pollOptions.length > 2 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setPollOptions([...pollOptions, ''])}
+                          >
+                            + Option hinzufügen
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedContentType === 'iframe' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="iframe-url">URL einbetten</Label>
+                        <Input
+                          id="iframe-url"
+                          type="url"
+                          value={iframeUrl}
+                          onChange={(event) => setIframeUrl(event.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+
+                    {selectedContentType === 'countdown' && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="countdown-date">Countdown-Datum</Label>
+                          <Input
+                            id="countdown-date"
+                            type="date"
+                            value={countdownDate}
+                            onChange={(event) => setCountdownDate(event.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Das Datum bestimmt, bis wann der Countdown läuft.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="countdown-text">Countdown-Text (Markdown)</Label>
+                          <MarkdownEditor
+                            id="countdown-text"
+                            value={countdownText}
+                            onChange={setCountdownText}
+                            placeholder="Optionaler Text, der unter dem Countdown angezeigt wird"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedContentType !== 'text' && selectedContentType !== 'countdown' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="message-content">Optionale Nachricht (Markdown)</Label>
+                        <MarkdownEditor
+                          id="message-content"
+                          value={messageContent}
+                          onChange={setMessageContent}
+                          placeholder="Zusätzliche Nachricht, die im Türchen angezeigt wird"
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-wrap justify-between gap-3">
+                    <Button type="button" variant="destructive" onClick={handleDeleteContent} disabled={!hasExistingContent} className="gap-2">
+                      <Trash2 className="h-4 w-4" /> Löschen
+                    </Button>
+                    <Button type="button" onClick={handleUploadContent} disabled={uploading} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      {uploading ? 'Speichert...' : 'Inhalt speichern'}
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          </TabsContent>
 
-      {/* Preview Modal */}
-      {previewContent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
-          onClick={() => setPreviewContent(null)}
-        >
-          <div
-            className="bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-purple-400/50 rounded-3xl p-8 max-w-3xl w-full shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-3xl font-bold text-white flex items-center gap-3">
-                <Eye className="w-8 h-8 text-purple-400" />
-                Vorschau: Türchen {previewContent.day}
-              </h3>
-              <button
-                onClick={() => setPreviewContent(null)}
-                className="text-white/60 hover:text-white text-3xl transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+          <TabsContent value="settings" className="pt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Kalender-Einstellungen</CardTitle>
+                <CardDescription>Steuere Startdatum, Titel und Beschreibung.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="start-date">Startdatum (Türchen 1)</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={settings.startDate}
+                    onChange={(event) => setSettings({ ...settings, startDate: event.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Türchen 1 öffnet an diesem Datum um 00:00 Uhr. Jedes weitere Türchen folgt an den darauffolgenden Tagen.
+                  </p>
+                </div>
 
-            <div className="bg-white/5 border border-white/20 rounded-xl p-6 space-y-4">
-              <div>
-                <span className="text-white/60">Typ:</span>
-                <span className="ml-3 text-yellow-300 font-bold text-lg">{previewContent.type}</span>
-              </div>
-
-              {/* Preview Media */}
-              {previewContent.type === 'image' && previewContent.data && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🖼️ Bild:</p>
-                  <img
-                    src={`/${previewContent.data}`}
-                    alt="Preview"
-                    className="max-w-full h-auto rounded-lg"
+                <div className="space-y-2">
+                  <Label htmlFor="calendar-title">Titel</Label>
+                  <Input
+                    id="calendar-title"
+                    value={settings.title}
+                    onChange={(event) => setSettings({ ...settings, title: event.target.value })}
+                    placeholder="Adventskalender 2024"
                   />
                 </div>
-              )}
 
-              {previewContent.type === 'video' && previewContent.data && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🎥 Video:</p>
-                  <video
-                    src={`/${previewContent.data}`}
-                    controls
-                    className="max-w-full h-auto rounded-lg"
+                <div className="space-y-2">
+                  <Label htmlFor="calendar-description">Beschreibung</Label>
+                  <textarea
+                    id="calendar-description"
+                    className={textareaClasses}
+                    value={settings.description}
+                    onChange={(event) => setSettings({ ...settings, description: event.target.value })}
+                    placeholder="Öffne jeden Tag ein neues Türchen..."
                   />
                 </div>
-              )}
-
-              {previewContent.type === 'audio' && previewContent.data && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🎵 Audio:</p>
-                  <audio
-                    src={`/${previewContent.data}`}
-                    controls
-                    className="w-full"
-                  />
-                </div>
-              )}
-
-              {previewContent.type === 'gif' && previewContent.data && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🔄 GIF:</p>
-                  <img
-                    src={`/${previewContent.data}`}
-                    alt="Preview"
-                    className="max-w-full h-auto rounded-lg"
-                  />
-                </div>
-              )}
-
-              {previewContent.type === 'iframe' && previewContent.data && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🔗 iFrame URL:</p>
-                  <p className="text-blue-300 break-all">{previewContent.data}</p>
-                </div>
-              )}
-
-              {previewContent.text && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">📝 Nachricht:</p>
-                  <div className="text-white/90 leading-relaxed whitespace-pre-wrap">{previewContent.text}</div>
-                </div>
-              )}
-
-              {previewContent.type === 'poll' && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">📊 Umfrage-Daten sind vorhanden</p>
-                </div>
-              )}
-
-              {previewContent.type === 'puzzle' && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">🧩 Puzzle-Spiel ist konfiguriert</p>
-                </div>
-              )}
-
-              {previewContent.type === 'countdown' && (
-                <div className="pt-4 border-t border-white/20">
-                  <p className="text-white/60 font-semibold mb-2">⏱️ Countdown ist aktiviert</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+              </CardContent>
+              <CardFooter>
+                <Button type="button" onClick={handleSaveSettings} disabled={saving} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Speichert...' : 'Einstellungen sichern'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 }

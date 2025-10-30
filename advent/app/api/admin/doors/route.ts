@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
           data: null,
           text: null,
           thumbnail: null,
+          meta: null,
         };
         continue;
       }
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
           data: null,
           text: null,
           thumbnail: null,
+          meta: null,
         };
         continue;
       }
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
       }
 
       const message = await MediaService.getMediaMessage(doorNumber);
+      const meta = mediaContent.meta ?? null;
 
       // Handle poll data
       if (mediaContent.type === 'poll') {
@@ -79,6 +82,7 @@ export async function GET(request: NextRequest) {
           data: JSON.stringify({ question: pollData, votes: pollVotes }),
           text: message,
           thumbnail,
+          meta,
         };
         continue;
       }
@@ -88,6 +92,7 @@ export async function GET(request: NextRequest) {
         data: mediaContent.data || null,
         text: message,
         thumbnail,
+        meta,
       };
     }
 

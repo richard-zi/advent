@@ -107,15 +107,33 @@ export class MediaService {
       switch (fileType) {
         case 'text': {
           const content = fsSync.readFileSync(filePath, 'utf8');
+          const trimmed = content.trim();
 
           // Check for special content markers
-          if (content.trim() === '<[countdown]>') {
-            return { type: 'countdown' };
+          if (trimmed === '<[countdown]>') {
+            return { type: 'countdown', meta: { targetDate: '', text: '' } };
           }
-          if (content.trim() === '<[poll]>') {
+          if (trimmed.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (parsed?.type === 'countdown') {
+                return {
+                  type: 'countdown',
+                  meta: {
+                    targetDate:
+                      typeof parsed.targetDate === 'string' ? parsed.targetDate : '',
+                    text: typeof parsed.text === 'string' ? parsed.text : '',
+                  },
+                };
+              }
+            } catch {
+              // Ignore JSON parse errors - treat as normal text below
+            }
+          }
+          if (trimmed === '<[poll]>') {
             return { type: 'poll' };
           }
-          if (content.trim() === '<[puzzle]>') {
+          if (trimmed === '<[puzzle]>') {
             return { type: 'puzzle' };
           }
 
@@ -198,7 +216,10 @@ export class MediaService {
     }
   }
 
-  static async saveCountdownContent(doorNumber: number): Promise<boolean> {
+  static async saveCountdownContent(
+    doorNumber: number,
+    options?: { targetDate?: string; text?: string }
+  ): Promise<boolean> {
     try {
       const mediumContent = fsSync.existsSync(paths.mediumJsonPath)
         ? await fs.readFile(paths.mediumJsonPath, 'utf8')
@@ -207,7 +228,16 @@ export class MediaService {
 
       const filename = `${doorNumber}.txt`;
       const filePath = path.join(paths.mediaDir, filename);
-      await fs.writeFile(filePath, '<[countdown]>');
+      const targetDate =
+        options?.targetDate && /^\d{4}-\d{2}-\d{2}$/.test(options.targetDate)
+          ? options.targetDate
+          : '';
+      const payload = {
+        type: 'countdown',
+        targetDate,
+        text: options?.text ?? '',
+      };
+      await fs.writeFile(filePath, JSON.stringify(payload, null, 2));
 
       medium[doorNumber] = filename;
       await fs.writeFile(paths.mediumJsonPath, JSON.stringify(medium, null, 2));

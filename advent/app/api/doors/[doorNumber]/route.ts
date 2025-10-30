@@ -49,6 +49,7 @@ export async function GET(
         data: null,
         text: null,
         thumbnail: null,
+        meta: null,
       } as DoorContent);
     }
 
@@ -61,6 +62,7 @@ export async function GET(
         data: null,
         text: null,
         thumbnail: null,
+        meta: null,
       } as DoorContent);
     }
 
@@ -73,6 +75,7 @@ export async function GET(
     );
 
     let thumbnail: string | null = null;
+    const meta = mediaContent.meta ?? null;
     if (['video', 'image', 'gif'].includes(mediaContent.type)) {
       const thumbnailPath = await ThumbnailService.generateThumbnail(
         filePath,
@@ -95,6 +98,7 @@ export async function GET(
         data: JSON.stringify({ question: pollData, votes: pollVotes }),
         text: message,
         thumbnail,
+        meta,
       } as DoorContent, {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -107,6 +111,7 @@ export async function GET(
       data: mediaContent.data || null,
       text: message,
       thumbnail,
+      meta,
     } as DoorContent, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',

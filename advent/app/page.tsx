@@ -72,6 +72,7 @@ export default function Home() {
             data: value.data || null,
             text: value.text || null,
             thumbnail: value.thumbnail || null,
+            meta: value.meta || null,
           }));
 
       setDoors(doorsArray);

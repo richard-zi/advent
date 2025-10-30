@@ -83,12 +83,10 @@ export async function GET(request: NextRequest) {
         }
 
         let data: string | null = null;
+        const meta = mediaContent.meta ?? null;
 
         switch (mediaContent.type) {
           case 'countdown':
-          case 'poll':
-            data = null;
-            break;
           case 'iframe':
             data = mediaContent.data || null;
             break;
@@ -96,16 +94,20 @@ export async function GET(request: NextRequest) {
             data = mediaContent.data || null;
             break;
           case 'puzzle': {
-          const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
-          data = `/api/media/${puzzleImageIndex}`;
+            const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
+            data = `/api/media/${puzzleImageIndex}`;
 
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
             }
             break;
           }
+          case 'countdown':
+          case 'poll':
+            data = null;
+            break;
           default:
-          data = `/api/media/${index}`;
+            data = `/api/media/${index}`;
         }
 
         // Load additional message if present
@@ -116,6 +118,7 @@ export async function GET(request: NextRequest) {
           type: TimingService.dateCheck(index) ? mediaContent.type : 'not available yet',
           text: TimingService.dateCheck(index) ? message : null,
           thumbnail: TimingService.dateCheck(index) ? thumbnailUrl : null,
+          meta: TimingService.dateCheck(index) ? (meta ?? null) : null,
           isSolved:
             mediaContent.type === 'puzzle'
               ? doorStates[index]?.win || false

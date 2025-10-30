@@ -16,12 +16,14 @@ export interface DoorContent {
   type: ContentType;
   text: string | null;
   thumbnail: string | null;
+  meta?: Record<string, unknown> | null;
   isSolved?: boolean;
 }
 
 export interface MediaContent {
   type: ContentType;
   data?: string;
+  meta?: Record<string, unknown> | null;
 }
 
 export interface PollData {
