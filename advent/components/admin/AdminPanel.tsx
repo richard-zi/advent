@@ -5,9 +5,11 @@ import { Settings, Upload, Calendar, Eye, LogOut, Save, Sparkles, Trash2, FileTe
 
 interface AdminPanelProps {
   onLogout: () => void;
+  onSessionExpired: () => void;
+  csrfToken: string;
 }
 
-export default function AdminPanel({ onLogout }: AdminPanelProps) {
+export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'doors' | 'settings'>('doors');
   const [settings, setSettings] = useState({
     startDate: '',
@@ -29,7 +31,16 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [csrfToken]);
+
+  const handleUnauthorized = (status: number) => {
+    if (status === 401 || status === 403) {
+      alert('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.');
+      onSessionExpired();
+      return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     // Reset form when door selection changes
@@ -37,13 +48,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   }, [selectedDoor]);
 
   const loadData = async () => {
-    const token = localStorage.getItem('adminToken');
+    if (!csrfToken) {
+      return;
+    }
 
-    // Load settings
     try {
       const settingsRes = await fetch('/api/admin/settings', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
+      if (handleUnauthorized(settingsRes.status)) {
+        return;
+      }
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setSettings(data);
@@ -55,8 +70,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     // Load doors - use the admin API endpoint that shows ALL content regardless of date
     try {
       const doorsRes = await fetch('/api/admin/doors', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
+      if (handleUnauthorized(doorsRes.status)) {
+        return;
+      }
       if (doorsRes.ok) {
         const data = await doorsRes.json();
         setDoors(Object.entries(data).map(([key, value]: [string, any]) => ({
@@ -71,16 +89,20 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const handleSaveSettings = async () => {
     setSaving(true);
-    const token = localStorage.getItem('adminToken');
     try {
       const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'X-CSRF-Token': csrfToken,
         },
+        credentials: 'include',
         body: JSON.stringify(settings),
       });
+
+      if (handleUnauthorized(response.status)) {
+        return;
+      }
 
       if (response.ok) {
         alert('✅ Einstellungen gespeichert!\n\nHinweis: Das Startdatum wird innerhalb von 10 Sekunden im Adventskalender aktualisiert.');
@@ -96,7 +118,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const handleUploadContent = async () => {
     setUploading(true);
-    const token = localStorage.getItem('adminToken');
 
     try {
       const formData = new FormData();
@@ -123,10 +144,15 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       const response = await fetch('/api/admin/doors/upload', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'X-CSRF-Token': csrfToken,
         },
+        credentials: 'include',
         body: formData,
       });
+
+      if (handleUnauthorized(response.status)) {
+        return;
+      }
 
       if (response.ok) {
         alert('✅ Inhalt hochgeladen!');
@@ -147,14 +173,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const handleDeleteContent = async () => {
     if (!confirm('Möchtest du den Inhalt wirklich löschen?')) return;
 
-    const token = localStorage.getItem('adminToken');
     try {
       const response = await fetch(`/api/admin/doors/${selectedDoor}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'X-CSRF-Token': csrfToken,
         },
+        credentials: 'include',
       });
+
+      if (handleUnauthorized(response.status)) {
+        return;
+      }
 
       if (response.ok) {
         alert('✅ Inhalt gelöscht!');
@@ -366,7 +396,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                             {currentDoor.type === 'image' && currentDoor.data && (
                               <div className="bg-white/5 p-2 rounded-lg">
                                 <img
-                                  src={`/${currentDoor.data}`}
+                                  src={currentDoor.data}
                                   alt="Preview"
                                   className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
                                 />
@@ -377,7 +407,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                             {currentDoor.type === 'gif' && currentDoor.data && (
                               <div className="bg-white/5 p-2 rounded-lg">
                                 <img
-                                  src={`/${currentDoor.data}`}
+                                  src={currentDoor.data}
                                   alt="Preview"
                                   className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
                                 />
@@ -388,7 +418,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                             {currentDoor.type === 'video' && currentDoor.data && (
                               <div className="bg-white/5 p-2 rounded-lg">
                                 <video
-                                  src={`/${currentDoor.data}`}
+                                  src={currentDoor.data}
                                   className="max-w-full h-auto max-h-48 rounded-lg mx-auto"
                                   controls
                                 />
@@ -399,7 +429,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                             {currentDoor.type === 'audio' && currentDoor.data && (
                               <div className="bg-white/5 p-3 rounded-lg">
                                 <audio
-                                  src={`/${currentDoor.data}`}
+                                  src={currentDoor.data}
                                   controls
                                   className="w-full"
                                 />

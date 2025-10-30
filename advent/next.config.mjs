@@ -18,6 +18,22 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Exclude native modules from webpack bundling (canvas)
+    if (isServer) {
+      config.externals.push({
+        '@napi-rs/canvas': 'commonjs @napi-rs/canvas',
+      });
+    }
+
+    // Add rule to ignore .node files
+    config.module.rules.push({
+      test: /\.node$/,
+      use: 'node-loader',
+    });
+
+    return config;
+  },
 };
 
 export default nextConfig;

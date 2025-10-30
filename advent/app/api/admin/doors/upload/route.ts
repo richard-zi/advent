@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/middleware/auth';
 import { MediaService } from '@/lib/services/mediaService';
 import { PollService } from '@/lib/services/pollService';
+import { ThumbnailService } from '@/lib/services/thumbnailService';
 import { logger } from '@/lib/utils/logger';
 import { paths } from '@/lib/config/paths';
 import fs from 'fs/promises';
@@ -24,8 +25,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid door number' }, { status: 400 });
     }
 
-    // Delete existing content if any
-    await MediaService.deleteContent(doorNumber);
+    // Delete existing content if any (including thumbnails & polls)
+    const medium = await MediaService.getAllDoors();
+    if (medium[doorNumber]) {
+      await ThumbnailService.deleteThumbnail(medium[doorNumber]);
+      await MediaService.deleteContent(doorNumber);
+      PollService.deletePoll(doorNumber);
+    }
 
     // Handle different content types
     switch (contentType) {

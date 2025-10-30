@@ -9,33 +9,30 @@ export default function AdminPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [csrfToken, setCsrfToken] = useState('');
 
   useEffect(() => {
     verifyAuth();
   }, []);
 
   const verifyAuth = async () => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const response = await fetch('/api/admin/verify', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include',
       });
 
       if (response.ok) {
+        const data = await response.json();
+        setCsrfToken(data.csrfToken);
         setIsAuthenticated(true);
       } else {
-        localStorage.removeItem('adminToken');
+        setIsAuthenticated(false);
+        setCsrfToken('');
       }
     } catch (err) {
       console.error('Auth verification failed:', err);
-      localStorage.removeItem('adminToken');
+      setIsAuthenticated(false);
+      setCsrfToken('');
     } finally {
       setIsLoading(false);
     }
@@ -51,14 +48,17 @@ export default function AdminPage() {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ username, password })
       });
 
       const data = await response.json();
 
-      if (response.ok && data.token) {
-        localStorage.setItem('adminToken', data.token);
+      if (response.ok && data.csrfToken) {
+        setCsrfToken(data.csrfToken);
         setIsAuthenticated(true);
+        setUsername('');
+        setPassword('');
       } else {
         setError(data.error || 'Login failed');
       }
@@ -68,11 +68,20 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
+  const handleLogout = (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      fetch('/api/admin/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
+      }).catch((err) => console.error('Logout failed:', err));
+    }
     setIsAuthenticated(false);
     setUsername('');
     setPassword('');
+    setCsrfToken('');
   };
 
   if (isLoading) {
@@ -134,5 +143,11 @@ export default function AdminPage() {
     );
   }
 
-  return <AdminPanel onLogout={handleLogout} />;
+  return (
+    <AdminPanel
+      onLogout={() => handleLogout()}
+      onSessionExpired={() => handleLogout({ silent: true })}
+      csrfToken={csrfToken}
+    />
+  );
 }

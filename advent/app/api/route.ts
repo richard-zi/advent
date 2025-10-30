@@ -62,17 +62,6 @@ export async function GET(request: NextRequest) {
 
         const filePath = path.join(paths.mediaDir, value);
         const fileType = FileUtils.getFileType(value);
-        let thumbnailUrl: string | null = null;
-
-        if (['video', 'image', 'gif'].includes(fileType)) {
-          const thumbnail = await ThumbnailService.generateThumbnail(
-            filePath,
-            fileType
-          );
-          if (thumbnail) {
-            thumbnailUrl = `/thumbnails/${path.basename(thumbnail)}`;
-          }
-        }
 
         // Prepare media content
         const mediaContent = MediaService.prepareMediaContent(
@@ -81,6 +70,17 @@ export async function GET(request: NextRequest) {
           doorStates,
           index
         );
+
+        // Generate thumbnail for all content types
+        let thumbnailUrl: string | null = null;
+        const thumbnail = await ThumbnailService.generateThumbnail(
+          filePath,
+          mediaContent.type,
+          index
+        );
+        if (thumbnail) {
+          thumbnailUrl = `/thumbnails/${path.basename(thumbnail)}`;
+        }
 
         let data: string | null = null;
 
@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
             data = mediaContent.data || null;
             break;
           case 'puzzle': {
-            const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
-            data = `/media/${puzzleImageIndex}`;
+          const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
+          data = `/api/media/${puzzleImageIndex}`;
 
             if (doorStates[index]?.win) {
               thumbnailUrl = data;
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
             break;
           }
           default:
-            data = `/media/${index}`;
+          data = `/api/media/${index}`;
         }
 
         // Load additional message if present

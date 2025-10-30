@@ -131,13 +131,13 @@ export class MediaService {
           return { type: 'text', data: content };
         }
         case 'audio':
-          return { type: 'audio', data: `media/${index}` };
+          return { type: 'audio', data: `/api/media/${index}` };
         case 'video':
-          return { type: 'video', data: `media/${index}` };
+          return { type: 'video', data: `/api/media/${index}` };
         case 'image':
-          return { type: 'image', data: `media/${index}` };
+          return { type: 'image', data: `/api/media/${index}` };
         case 'gif':
-          return { type: 'gif', data: `media/${index}` };
+          return { type: 'gif', data: `/api/media/${index}` };
         default:
           return { type: 'text' };
       }

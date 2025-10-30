@@ -34,10 +34,17 @@ export default function Confetti({ trigger, onComplete }: ConfettiProps) {
       shape: 'circle' | 'square' | 'triangle';
     }> = [];
 
+    // Christmas color scheme: Forest Green, Dark Gold, Deep Red, Silver
     const colors = [
-      '#ff0000', '#00ff00', '#0000ff', '#ffff00',
-      '#ff00ff', '#00ffff', '#ffa500', '#ff69b4',
-      '#ffd700', '#98fb98', '#87ceeb', '#dda0dd'
+      '#0B4619', // Dark Green
+      '#1B5E20', // Forest Green
+      '#8B0000', // Deep Red
+      '#4A0E0E', // Wine Red
+      '#B8860B', // Dark Gold
+      '#FFD700', // Gold
+      '#C0C0C0', // Silver
+      '#0F7A3E', // Christmas Green
+      '#C41E3A', // Christmas Red
     ];
 
     // Create confetti particles

@@ -88,6 +88,9 @@ JWT_SECRET=dein-sicherer-secret-key
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=dein-sicheres-passwort
 
+# Optional: Admin-Zugang nur von bestimmten IPs erlauben (Komma separieren)
+ADMIN_IP_ALLOWLIST=203.0.113.10,198.51.100.25
+
 # FFmpeg Pfade (anpassen für dein System)
 FFMPEG_PATH=/usr/bin/ffmpeg
 FFPROBE_PATH=/usr/bin/ffprobe

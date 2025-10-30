@@ -7,12 +7,14 @@ import { logger } from '../utils/logger';
 import { FileUtils } from '../utils/fileUtils';
 import type { AdminCredentials } from '../types';
 
+const SALT_ROUNDS = env.nodeEnv === 'production' ? 12 : 10;
+
 export class AuthService {
   static async initializeAdmin(): Promise<void> {
     FileUtils.ensureDirectoryExists(paths.dataDir);
 
     if (!fs.existsSync(paths.adminCredentialsPath)) {
-      const hashedPassword = await bcrypt.hash(env.adminPassword, 10);
+      const hashedPassword = await bcrypt.hash(env.adminPassword, SALT_ROUNDS);
       const credentials: AdminCredentials = {
         username: env.adminUsername,
         password: hashedPassword,

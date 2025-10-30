@@ -4,13 +4,64 @@
 
 @layer base {
   :root {
-    --background: #f0f4f8;
-    --foreground: #1a202c;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 0 0% 4%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 46%;
+    --accent: 43 74% 66%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 43 74% 66%;
+    --radius: 0.75rem;
+
+    /* Christmas Color Accents */
+    --christmas-red: 0 72% 51%;
+    --christmas-green: 142 76% 36%;
+    --christmas-gold: 43 74% 66%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
   }
 
   .dark {
-    --background: #1a202c;
-    --foreground: #f7fafc;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 43 74% 66%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 43 74% 66%;
+
+    /* Dark mode Christmas accents */
+    --christmas-red: 0 72% 51%;
+    --christmas-green: 142 76% 36%;
+    --christmas-gold: 43 74% 66%;
   }
 
   * {
@@ -54,6 +105,34 @@ body {
       background-position: 100% 50%;
     }
   }
+
+  /* Minimal Glassmorphism */
+  .glass {
+    @apply bg-white/70 backdrop-blur-sm border border-border/50;
+  }
+
+  .glass-hover:hover {
+    @apply bg-white/80 border-accent/50 shadow-lg;
+  }
+
+  /* Gold Glow on Hover */
+  .glow-gold {
+    transition: box-shadow 0.3s ease;
+  }
+
+  .glow-gold:hover {
+    box-shadow: 0 0 30px hsl(var(--gold) / 0.4);
+  }
+
+  /* Subtle Red Accent (for opened doors) */
+  .accent-red {
+    border-left: 2px solid hsl(var(--red));
+  }
+
+  /* Locked State */
+  .door-locked {
+    @apply opacity-40 cursor-not-allowed;
+  }
 }
 
 /* Custom Scrollbar */
@@ -96,4 +175,15 @@ body {
 
 .fade-in {
   animation: fadeIn 0.5s ease-out;
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

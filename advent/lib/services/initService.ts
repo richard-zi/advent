@@ -1,5 +1,6 @@
 import { FileUtils } from '../utils/fileUtils';
 import { paths } from '../config/paths';
+import { validateEnv } from '../config/env';
 import { AuthService } from './authService';
 import { PollService } from './pollService';
 import { MediaService } from './mediaService';
@@ -15,6 +16,9 @@ export class InitService {
 
     try {
       logger.info('Initializing application...');
+
+      // Ensure critical environment variables are set
+      validateEnv();
 
       // Ensure all directories exist
       FileUtils.ensureDirectoryExists(paths.dataDir);
