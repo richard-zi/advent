@@ -21,6 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showSnow, setShowSnow] = useState(true);
   const [startDate, setStartDate] = useState<Date | null>(null);
+  const [title, setTitle] = useState('Adventskalender 2024');
 
   // Shuffle logic: generate or load door order
   useEffect(() => {
@@ -71,7 +72,8 @@ export default function Home() {
             type: value.type || 'not available yet',
             data: value.data || null,
             text: value.text || null,
-            thumbnail: value.thumbnail || null,
+            thumbnailLight: value.thumbnailLight || null,
+            thumbnailDark: value.thumbnailDark || null,
             meta: value.meta || null,
           }));
 
@@ -89,6 +91,7 @@ export default function Home() {
       const data = await response.json();
 
       if (data.startDate) setStartDate(new Date(data.startDate));
+      if (data.title) setTitle(data.title);
     } catch (error) {
       console.error('Error fetching settings:', error);
     }
@@ -148,7 +151,7 @@ export default function Home() {
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-christmas-gold mb-4 mx-auto"></div>
-          <p className="text-foreground text-lg">Laden...</p>
+          <p className="text-foreground dark:text-white text-lg">Laden...</p>
         </div>
       </div>
     );
@@ -167,8 +170,8 @@ export default function Home() {
       {/* Header */}
       <header className="bg-background z-40 h-16 flex items-center px-4 sm:px-6 flex-shrink-0">
         <div className="flex items-center justify-center flex-1">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
-            Adventskalender 2024
+          <h1 className="text-xl sm:text-2xl font-heading font-semibold tracking-tight text-foreground dark:text-white">
+            {title}
           </h1>
         </div>
         <div className="flex gap-2">
@@ -201,8 +204,9 @@ export default function Home() {
             const hasContent = door && door.type !== 'not available yet';
             const isLocked = !available || !hasContent;
 
-            // Thumbnail logic - all content types should have thumbnails now
-            const hasThumbnail = opened && door?.thumbnail;
+            // Thumbnail logic - select based on theme
+            const thumbnailUrl = isDarkMode ? door?.thumbnailDark : door?.thumbnailLight;
+            const hasThumbnail = opened && thumbnailUrl;
 
             // Status icon and badge
             const StatusIcon = isLocked ? Lock : opened ? CheckCircle : Gift;
@@ -227,7 +231,7 @@ export default function Home() {
                   !isLocked && !opened && !hasThumbnail && "bg-gradient-to-br from-christmas-green/12 via-transparent to-christmas-gold/5"
                 )}
                 style={hasThumbnail ? {
-                  backgroundImage: `url(${door.thumbnail})`,
+                  backgroundImage: `url(${thumbnailUrl})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
                 } : undefined}
@@ -247,9 +251,9 @@ export default function Home() {
                   )}>
                     <AvatarFallback className={cn(
                       "font-semibold text-sm sm:text-base md:text-lg",
-                      opened && "bg-red-50 dark:bg-red-950 text-christmas-red",
-                      !isLocked && !opened && "bg-green-50 dark:bg-green-950 text-christmas-green",
-                      isLocked && "bg-muted text-muted-foreground"
+                      opened && "bg-red-50 dark:bg-red-950 text-christmas-red dark:text-red-300",
+                      !isLocked && !opened && "bg-green-50 dark:bg-green-950 text-christmas-green dark:text-green-300",
+                      isLocked && "bg-muted text-muted-foreground dark:text-gray-400"
                     )}>
                       {day}
                     </AvatarFallback>
@@ -262,9 +266,9 @@ export default function Home() {
 
                 <CardContent className="p-2 sm:p-3 pt-0 relative z-10">
                   <p className={cn(
-                    "text-xs sm:text-sm font-medium",
+                    "text-xs sm:text-sm font-medium text-foreground dark:text-white",
                     hasThumbnail && "text-white drop-shadow-md",
-                    isLocked && "text-muted-foreground"
+                    isLocked && "text-muted-foreground dark:text-gray-400"
                   )}>
                     Türchen {day}
                   </p>

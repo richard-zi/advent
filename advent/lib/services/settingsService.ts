@@ -6,7 +6,6 @@ import { logger } from '../utils/logger';
 export interface CalendarSettings {
   startDate: string; // ISO date string
   title: string;
-  description: string;
 }
 
 const SETTINGS_FILE = path.join(paths.dataDir, 'settings.json');
@@ -14,7 +13,6 @@ const SETTINGS_FILE = path.join(paths.dataDir, 'settings.json');
 const DEFAULT_SETTINGS: CalendarSettings = {
   startDate: '2024-12-01',
   title: 'Adventskalender 2024',
-  description: 'Öffne jeden Tag ein neues Türchen und entdecke die Überraschung! 🎁',
 };
 
 export class SettingsService {

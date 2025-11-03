@@ -17,70 +17,84 @@ export class ThumbnailService {
     filePath: string,
     type: FileType | 'puzzle',
     doorNumber?: number
-  ): Promise<string | null> {
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
       const filename = path.basename(filePath);
       const identifier = doorNumber || filename.split('.')[0];
-      const thumbnailPath = path.join(
+      const thumbnailPathLight = path.join(
         paths.thumbnailsDir,
-        `thumb_${identifier}.jpg`
+        `thumb_${identifier}_light.jpg`
+      );
+      const thumbnailPathDark = path.join(
+        paths.thumbnailsDir,
+        `thumb_${identifier}_dark.jpg`
       );
 
-      if (await this.checkExistingThumbnail(thumbnailPath)) {
-        return thumbnailPath;
+      // Check if both thumbnails exist
+      const lightExists = await this.checkExistingThumbnail(thumbnailPathLight);
+      const darkExists = await this.checkExistingThumbnail(thumbnailPathDark);
+
+      if (lightExists && darkExists) {
+        return { light: thumbnailPathLight, dark: thumbnailPathDark };
       }
 
-      logger.info('Generiere neues Thumbnail für:', filename, 'Typ:', type);
+      logger.info('Generiere neue Thumbnails für:', filename, 'Typ:', type);
 
       switch (type) {
         case 'puzzle':
-          return await this.generatePuzzleThumbnail(thumbnailPath);
+          return await this.generatePuzzleThumbnails(thumbnailPathLight, thumbnailPathDark);
         case 'video':
         case 'gif':
-          return await this.generateMediaThumbnail(filePath, thumbnailPath);
+          return await this.generateMediaThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'image':
-          return await this.generateImageThumbnail(filePath, thumbnailPath);
+          return await this.generateImageThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'text':
-          return await this.generateTextThumbnail(filePath, thumbnailPath);
+          return await this.generateTextThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'poll':
-          return await this.generatePollThumbnail(doorNumber!, thumbnailPath);
+          return await this.generatePollThumbnails(doorNumber!, thumbnailPathLight, thumbnailPathDark);
         case 'audio':
-          return await this.generateAudioThumbnail(filePath, thumbnailPath);
+          return await this.generateAudioThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'countdown':
-          return await this.generateCountdownThumbnail(thumbnailPath);
+          return await this.generateCountdownThumbnails(thumbnailPathLight, thumbnailPathDark);
         case 'iframe':
-          return await this.generateIframeThumbnail(filePath, thumbnailPath);
+          return await this.generateIframeThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         default:
           logger.info('Kein Thumbnail-Generator für Typ:', type);
-          return null;
+          return { light: null, dark: null };
       }
     } catch (error) {
       logger.error('Fehler bei der Thumbnail-Generierung:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 
-  static async generatePuzzleThumbnail(thumbnailPath: string): Promise<string | null> {
+  static async generatePuzzleThumbnails(
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     const puzzleAsset = path.join(paths.assetDir, 'puzzle.jpg');
     if (fs.existsSync(puzzleAsset)) {
-      fs.copyFileSync(puzzleAsset, thumbnailPath);
-      return thumbnailPath;
+      // Puzzle thumbnails are the same for both themes (they're actual images)
+      fs.copyFileSync(puzzleAsset, thumbnailPathLight);
+      fs.copyFileSync(puzzleAsset, thumbnailPathDark);
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     }
-    return null;
+    return { light: null, dark: null };
   }
 
-  static async generateMediaThumbnail(
+  static async generateMediaThumbnails(
     filePath: string,
-    thumbnailPath: string
-  ): Promise<string> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     // Check if FFmpeg is available
     if (!env.ffmpegPath || !env.ffprobePath) {
       logger.warn('FFmpeg nicht konfiguriert, überspringe Video/GIF-Thumbnail');
-      return thumbnailPath; // Return path anyway, will fail gracefully
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     }
 
     return new Promise((resolve, reject) => {
-      const tempPath = thumbnailPath.replace('.jpg', '_temp.jpg');
+      const tempPath = thumbnailPathLight.replace('_light.jpg', '_temp.jpg');
 
       // Set ffmpeg and ffprobe paths
       ffmpeg.setFfmpegPath(env.ffmpegPath);
@@ -94,34 +108,40 @@ export class ThumbnailService {
         })
         .on('end', async () => {
           try {
-            await this.processTemporaryFile(tempPath, thumbnailPath);
-            resolve(thumbnailPath);
+            // Process both versions (they're identical for media files)
+            await this.processTemporaryFile(tempPath, thumbnailPathLight);
+            fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+            resolve({ light: thumbnailPathLight, dark: thumbnailPathDark });
           } catch (err) {
             reject(err);
           }
         })
         .on('error', (err) => {
           logger.error('FFmpeg error:', err);
-          resolve(thumbnailPath); // Resolve anyway to prevent API failure
+          resolve({ light: thumbnailPathLight, dark: thumbnailPathDark });
         });
     });
   }
 
-  static async generateImageThumbnail(
+  static async generateImageThumbnails(
     filePath: string,
-    thumbnailPath: string
-  ): Promise<string> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     const metadata = await sharp(filePath).metadata();
     const targetHeight = Math.round(
       this.targetWidth * ((metadata.height || 500) / (metadata.width || 500))
     );
 
+    // Images are the same for both themes
     await sharp(filePath)
       .resize(this.targetWidth, targetHeight, { fit: 'fill' })
       .jpeg({ quality: this.quality })
-      .toFile(thumbnailPath);
+      .toFile(thumbnailPathLight);
 
-    return thumbnailPath;
+    fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+
+    return { light: thumbnailPathLight, dark: thumbnailPathDark };
   }
 
   static async processTemporaryFile(
@@ -176,13 +196,23 @@ export class ThumbnailService {
 
   static async deleteThumbnail(filename: string): Promise<void> {
     try {
-      const thumbnailPath = path.join(
+      const identifier = filename.split('.')[0];
+      const thumbnailPathLight = path.join(
         paths.thumbnailsDir,
-        `thumb_${filename.split('.')[0]}.jpg`
+        `thumb_${identifier}_light.jpg`
       );
-      if (fs.existsSync(thumbnailPath)) {
-        fs.unlinkSync(thumbnailPath);
-        logger.info('Thumbnail gelöscht:', thumbnailPath);
+      const thumbnailPathDark = path.join(
+        paths.thumbnailsDir,
+        `thumb_${identifier}_dark.jpg`
+      );
+
+      if (fs.existsSync(thumbnailPathLight)) {
+        fs.unlinkSync(thumbnailPathLight);
+        logger.info('Thumbnail gelöscht:', thumbnailPathLight);
+      }
+      if (fs.existsSync(thumbnailPathDark)) {
+        fs.unlinkSync(thumbnailPathDark);
+        logger.info('Thumbnail gelöscht:', thumbnailPathDark);
       }
     } catch (error) {
       logger.error('Fehler beim Löschen des Thumbnails:', error);
@@ -217,192 +247,244 @@ export class ThumbnailService {
 
   // New thumbnail generation methods for all content types
 
-  static async generateTextThumbnail(
+  static async generateTextThumbnails(
     filePath: string,
-    thumbnailPath: string
-  ): Promise<string | null> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
       const textContent = fs.readFileSync(filePath, 'utf-8');
       const cleanText = this.stripMarkdown(textContent);
-      const preview = cleanText.substring(0, 250); // First 250 characters of clean text
+      const preview = cleanText.substring(0, 250);
 
-      const canvas = createCanvas(500, 500);
-      const ctx = canvas.getContext('2d');
+      // Generate light version
+      const canvasLight = createCanvas(500, 500);
+      const ctxLight = canvasLight.getContext('2d');
 
-      // Christmas gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 500, 500);
-      gradient.addColorStop(0, '#c1272d');
-      gradient.addColorStop(1, '#228b22');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 500, 500);
+      // Light theme: white background
+      ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
+      ctxLight.fillRect(0, 0, 500, 500);
 
-      // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, 500, 500);
+      // Text rendering - dark text on light background
+      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxLight.font = 'bold 24px sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillText('📝 Text', 250, 60);
 
-      // Text rendering
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('📝 Text', 250, 60);
+      ctxLight.font = '18px sans-serif';
+      this.wrapText(ctxLight, preview, 250, 120, 440, 26);
 
-      // Content preview with word wrap
-      ctx.font = '18px sans-serif';
-      this.wrapText(ctx, preview, 250, 120, 440, 26);
+      const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      const buffer = canvas.toBuffer('image/jpeg', 85);
-      fs.writeFileSync(thumbnailPath, buffer);
+      // Generate dark version
+      const canvasDark = createCanvas(500, 500);
+      const ctxDark = canvasDark.getContext('2d');
 
-      return thumbnailPath;
+      // Dark theme: dark background
+      ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxDark.fillRect(0, 0, 500, 500);
+
+      // Text rendering - light text on dark background
+      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
+      ctxDark.font = 'bold 24px sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillText('📝 Text', 250, 60);
+
+      ctxDark.font = '18px sans-serif';
+      this.wrapText(ctxDark, preview, 250, 120, 440, 26);
+
+      const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathDark, bufferDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     } catch (error) {
       logger.error('Fehler bei Text-Thumbnail:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 
-  static async generatePollThumbnail(
+  static async generatePollThumbnails(
     doorNumber: number,
-    thumbnailPath: string
-  ): Promise<string | null> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
-      // Read poll data
       const pollDataPath = path.join(paths.dataDir, 'polls', 'pollData.json');
       if (!fs.existsSync(pollDataPath)) {
-        return null;
+        return { light: null, dark: null };
       }
 
       const pollData = JSON.parse(fs.readFileSync(pollDataPath, 'utf-8'));
       const poll = pollData[doorNumber];
 
       if (!poll) {
-        return null;
+        return { light: null, dark: null };
       }
 
-      const canvas = createCanvas(500, 500);
-      const ctx = canvas.getContext('2d');
+      // Generate light version
+      const canvasLight = createCanvas(500, 500);
+      const ctxLight = canvasLight.getContext('2d');
 
-      // Christmas gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 500, 500);
-      gradient.addColorStop(0, '#228b22');
-      gradient.addColorStop(1, '#c1272d');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
+      ctxLight.fillRect(0, 0, 500, 500);
 
-      // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxLight.font = 'bold 28px sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillText('📊 Umfrage', 250, 60);
 
-      // Title
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('📊 Umfrage', 250, 60);
+      ctxLight.font = 'bold 22px sans-serif';
+      this.wrapText(ctxLight, poll.question, 250, 120, 440, 32);
 
-      // Poll question with word wrap
-      ctx.font = 'bold 22px sans-serif';
-      this.wrapText(ctx, poll.question, 250, 120, 440, 32);
-
-      // Options (shortened)
-      ctx.font = '16px sans-serif';
+      ctxLight.font = '16px sans-serif';
       let yPos = 280;
       poll.options.slice(0, 4).forEach((option: string, index: number) => {
         const shortOption = option.length > 35 ? option.substring(0, 35) + '...' : option;
-        ctx.fillText(`${index + 1}. ${shortOption}`, 250, yPos);
+        ctxLight.fillText(`${index + 1}. ${shortOption}`, 250, yPos);
         yPos += 30;
       });
 
-      const buffer = canvas.toBuffer('image/jpeg', 85);
-      fs.writeFileSync(thumbnailPath, buffer);
+      const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      return thumbnailPath;
+      // Generate dark version
+      const canvasDark = createCanvas(500, 500);
+      const ctxDark = canvasDark.getContext('2d');
+
+      ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxDark.fillRect(0, 0, 500, 500);
+
+      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
+      ctxDark.font = 'bold 28px sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillText('📊 Umfrage', 250, 60);
+
+      ctxDark.font = 'bold 22px sans-serif';
+      this.wrapText(ctxDark, poll.question, 250, 120, 440, 32);
+
+      ctxDark.font = '16px sans-serif';
+      yPos = 280;
+      poll.options.slice(0, 4).forEach((option: string, index: number) => {
+        const shortOption = option.length > 35 ? option.substring(0, 35) + '...' : option;
+        ctxDark.fillText(`${index + 1}. ${shortOption}`, 250, yPos);
+        yPos += 30;
+      });
+
+      const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathDark, bufferDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     } catch (error) {
       logger.error('Fehler bei Poll-Thumbnail:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 
-  static async generateAudioThumbnail(
+  static async generateAudioThumbnails(
     filePath: string,
-    thumbnailPath: string
-  ): Promise<string | null> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
-      const canvas = createCanvas(500, 500);
-      const ctx = canvas.getContext('2d');
+      // Generate light version
+      const canvasLight = createCanvas(500, 500);
+      const ctxLight = canvasLight.getContext('2d');
 
-      // Christmas gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 500, 500);
-      gradient.addColorStop(0, '#ffd700');
-      gradient.addColorStop(1, '#c1272d');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
+      ctxLight.fillRect(0, 0, 500, 500);
 
-      // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxLight.font = 'bold 120px sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillText('🎵', 250, 280);
 
-      // Music note icon (simplified)
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 120px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🎵', 250, 280);
+      ctxLight.font = 'bold 32px sans-serif';
+      ctxLight.fillText('Audio', 250, 380);
 
-      // Title
-      ctx.font = 'bold 32px sans-serif';
-      ctx.fillText('Audio', 250, 380);
+      const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      const buffer = canvas.toBuffer('image/jpeg', 85);
-      fs.writeFileSync(thumbnailPath, buffer);
+      // Generate dark version
+      const canvasDark = createCanvas(500, 500);
+      const ctxDark = canvasDark.getContext('2d');
 
-      return thumbnailPath;
+      ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxDark.fillRect(0, 0, 500, 500);
+
+      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
+      ctxDark.font = 'bold 120px sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillText('🎵', 250, 280);
+
+      ctxDark.font = 'bold 32px sans-serif';
+      ctxDark.fillText('Audio', 250, 380);
+
+      const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathDark, bufferDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     } catch (error) {
       logger.error('Fehler bei Audio-Thumbnail:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 
-  static async generateCountdownThumbnail(
-    thumbnailPath: string
-  ): Promise<string | null> {
+  static async generateCountdownThumbnails(
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
-      const canvas = createCanvas(500, 500);
-      const ctx = canvas.getContext('2d');
+      // Generate light version
+      const canvasLight = createCanvas(500, 500);
+      const ctxLight = canvasLight.getContext('2d');
 
-      // Christmas gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 500, 500);
-      gradient.addColorStop(0, '#c1272d');
-      gradient.addColorStop(1, '#ffd700');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
+      ctxLight.fillRect(0, 0, 500, 500);
 
-      // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxLight.font = 'bold 120px sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillText('⏱️', 250, 230);
 
-      // Clock icon
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 120px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('⏱️', 250, 230);
+      ctxLight.font = 'bold 32px sans-serif';
+      ctxLight.fillText('Christmas', 250, 320);
+      ctxLight.fillText('Countdown', 250, 370);
 
-      // Title
-      ctx.font = 'bold 32px sans-serif';
-      ctx.fillText('Christmas', 250, 320);
-      ctx.fillText('Countdown', 250, 370);
+      const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      const buffer = canvas.toBuffer('image/jpeg', 85);
-      fs.writeFileSync(thumbnailPath, buffer);
+      // Generate dark version
+      const canvasDark = createCanvas(500, 500);
+      const ctxDark = canvasDark.getContext('2d');
 
-      return thumbnailPath;
+      ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxDark.fillRect(0, 0, 500, 500);
+
+      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
+      ctxDark.font = 'bold 120px sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillText('⏱️', 250, 230);
+
+      ctxDark.font = 'bold 32px sans-serif';
+      ctxDark.fillText('Christmas', 250, 320);
+      ctxDark.fillText('Countdown', 250, 370);
+
+      const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathDark, bufferDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     } catch (error) {
       logger.error('Fehler bei Countdown-Thumbnail:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 
-  static async generateIframeThumbnail(
+  static async generateIframeThumbnails(
     filePath: string,
-    thumbnailPath: string
-  ): Promise<string | null> {
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
     try {
       const iframeUrl = fs.readFileSync(filePath, 'utf-8').trim();
 
@@ -414,54 +496,63 @@ export class ThumbnailService {
         const ytThumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
         try {
-          // Download YouTube thumbnail
+          // Download YouTube thumbnail (same for both themes)
           const response = await fetch(ytThumbnailUrl);
           if (response.ok) {
             const buffer = Buffer.from(await response.arrayBuffer());
-            // Resize to standard dimensions
             await sharp(buffer)
               .resize(this.targetWidth, null, { fit: 'cover' })
               .jpeg({ quality: this.quality })
-              .toFile(thumbnailPath);
-            return thumbnailPath;
+              .toFile(thumbnailPathLight);
+
+            fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+            return { light: thumbnailPathLight, dark: thumbnailPathDark };
           }
         } catch (err) {
           logger.warn('YouTube-Thumbnail konnte nicht geladen werden, verwende Fallback');
         }
       }
 
-      // Fallback: Generic iframe thumbnail
-      const canvas = createCanvas(500, 500);
-      const ctx = canvas.getContext('2d');
+      // Fallback: Generic iframe thumbnail - light version
+      const canvasLight = createCanvas(500, 500);
+      const ctxLight = canvasLight.getContext('2d');
 
-      // Gradient background
-      const gradient = ctx.createLinearGradient(0, 0, 500, 500);
-      gradient.addColorStop(0, '#228b22');
-      gradient.addColorStop(1, '#ffd700');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
+      ctxLight.fillRect(0, 0, 500, 500);
 
-      // Semi-transparent overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(0, 0, 500, 500);
+      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxLight.font = 'bold 120px sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillText('🖼️', 250, 280);
 
-      // Frame icon
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 120px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🖼️', 250, 280);
+      ctxLight.font = 'bold 32px sans-serif';
+      ctxLight.fillText('Iframe', 250, 380);
 
-      // Title
-      ctx.font = 'bold 32px sans-serif';
-      ctx.fillText('Iframe', 250, 380);
+      const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      const buffer = canvas.toBuffer('image/jpeg', 85);
-      fs.writeFileSync(thumbnailPath, buffer);
+      // Fallback: Generic iframe thumbnail - dark version
+      const canvasDark = createCanvas(500, 500);
+      const ctxDark = canvasDark.getContext('2d');
 
-      return thumbnailPath;
+      ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
+      ctxDark.fillRect(0, 0, 500, 500);
+
+      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
+      ctxDark.font = 'bold 120px sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillText('🖼️', 250, 280);
+
+      ctxDark.font = 'bold 32px sans-serif';
+      ctxDark.fillText('Iframe', 250, 380);
+
+      const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
+      fs.writeFileSync(thumbnailPathDark, bufferDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
     } catch (error) {
       logger.error('Fehler bei Iframe-Thumbnail:', error);
-      return null;
+      return { light: null, dark: null };
     }
   }
 

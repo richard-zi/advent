@@ -79,7 +79,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
 
       case 'text':
         return (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
+          <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white text-foreground dark:text-white">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{door.data || ''}</ReactMarkdown>
           </div>
         );
@@ -114,11 +114,11 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
           <div className="space-y-8 py-8 text-center">
             <div>
               <Clock className="mx-auto mb-6 h-24 w-24 text-christmas-gold" />
-              <h3 className="text-2xl font-semibold text-foreground">
+              <h3 className="text-2xl font-semibold text-foreground dark:text-white">
                 Countdown
               </h3>
               {displayDate && (
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
                   Bis zum {displayDate.toLocaleDateString('de-DE', {
                     year: 'numeric',
                     month: 'long',
@@ -129,7 +129,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
             </div>
             <CountdownTimer targetDate={targetDate} />
             {countdownText && (
-              <div className="prose prose-sm mx-auto max-w-2xl text-left dark:prose-invert">
+              <div className="prose prose-sm mx-auto max-w-2xl text-left dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {countdownText}
                 </ReactMarkdown>
@@ -143,7 +143,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
         return (
           <div className="text-center py-8">
             <MessageSquare className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
-            <p className="text-foreground">Umfrage wird geladen...</p>
+            <p className="text-foreground dark:text-white">Umfrage wird geladen...</p>
           </div>
         );
 
@@ -151,14 +151,14 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
         return (
           <div className="text-center py-8">
             <Puzzle className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
-            <p className="text-foreground">Puzzle wird geladen...</p>
+            <p className="text-foreground dark:text-white">Puzzle wird geladen...</p>
           </div>
         );
 
       default:
         return (
           <div className="text-center py-8">
-            <p className="text-foreground">Kein Inhalt verfügbar</p>
+            <p className="text-foreground dark:text-white">Kein Inhalt verfügbar</p>
           </div>
         );
     }
@@ -175,8 +175,8 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <DialogTitle className="text-2xl">Türchen {door.day}</DialogTitle>
-              <DialogDescription>{getTypeLabel()}</DialogDescription>
+              <DialogTitle className="text-2xl dark:text-white">Türchen {door.day}</DialogTitle>
+              <DialogDescription className="dark:text-gray-300">{getTypeLabel()}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -191,7 +191,7 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
             <>
               <Separator />
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <div className="prose prose-sm max-w-none">
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white text-foreground dark:text-white">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{door.text}</ReactMarkdown>
                 </div>
               </div>
@@ -261,7 +261,7 @@ function CountdownTimer({ targetDate }: { targetDate?: string }) {
             <div className="mb-2 text-4xl font-semibold text-christmas-gold">
               {value}
             </div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400">
               {unit === 'days' && 'Tage'}
               {unit === 'hours' && 'Stunden'}
               {unit === 'minutes' && 'Minuten'}

@@ -15,7 +15,8 @@ export interface DoorContent {
   data: string | null;
   type: ContentType;
   text: string | null;
-  thumbnail: string | null;
+  thumbnailLight: string | null;
+  thumbnailDark: string | null;
   meta?: Record<string, unknown> | null;
   isSolved?: boolean;
 }

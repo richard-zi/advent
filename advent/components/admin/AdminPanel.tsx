@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTheme } from 'next-themes';
 import {
   Upload,
   Settings,
@@ -16,6 +17,8 @@ import {
   Sparkles,
   Trash2,
   Save,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -35,6 +38,26 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { DoorContent } from '@/lib/types';
+import dynamic from 'next/dynamic';
+import '@mdxeditor/editor/style.css';
+import {
+  MDXEditor,
+  headingsPlugin,
+  listsPlugin,
+  quotePlugin,
+  thematicBreakPlugin,
+  markdownShortcutPlugin,
+  linkPlugin,
+  linkDialogPlugin,
+  toolbarPlugin,
+  UndoRedo,
+  BoldItalicUnderlineToggles,
+  CodeToggle,
+  ListsToggle,
+  BlockTypeSelect,
+  CreateLink,
+  type MDXEditorMethods,
+} from '@mdxeditor/editor';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -76,7 +99,6 @@ const contentTypeOptions: ContentOption[] = [
 const defaultSettings = {
   startDate: '',
   title: '',
-  description: '',
 };
 
 function getCountdownMeta(meta: unknown): CountdownMeta {
@@ -98,39 +120,48 @@ type MarkdownEditorProps = {
 };
 
 function MarkdownEditor({ id, value, onChange, placeholder }: MarkdownEditorProps) {
-  const [mode, setMode] = useState<'write' | 'preview'>('write');
-
   return (
     <div className="space-y-2">
-      <Tabs value={mode} onValueChange={(val) => setMode(val as 'write' | 'preview')} className="space-y-2">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="write">Bearbeiten</TabsTrigger>
-          <TabsTrigger value="preview">Vorschau</TabsTrigger>
-        </TabsList>
-        <TabsContent value="write">
-          <textarea
-            id={id}
-            className={textareaClasses}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-          />
-        </TabsContent>
-        <TabsContent value="preview">
-          <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-4 text-left dark:prose-invert">
-            {value ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
-            ) : (
-              <p className="text-sm text-muted-foreground">Noch kein Inhalt</p>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="rounded-md border border-input bg-background overflow-hidden">
+        <MDXEditor
+          key={id}
+          markdown={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          plugins={[
+            headingsPlugin(),
+            listsPlugin(),
+            quotePlugin(),
+            thematicBreakPlugin(),
+            linkPlugin(),
+            linkDialogPlugin(),
+            markdownShortcutPlugin(),
+            toolbarPlugin({
+              toolbarContents: () => (
+                <>
+                  <UndoRedo />
+                  <Separator orientation="vertical" className="mx-2 h-6" />
+                  <BoldItalicUnderlineToggles />
+                  <CodeToggle />
+                  <Separator orientation="vertical" className="mx-2 h-6" />
+                  <BlockTypeSelect />
+                  <Separator orientation="vertical" className="mx-2 h-6" />
+                  <ListsToggle />
+                  <Separator orientation="vertical" className="mx-2 h-6" />
+                  <CreateLink />
+                </>
+              ),
+            }),
+          ]}
+          contentEditableClassName="prose prose-sm max-w-none p-4 min-h-[200px] focus:outline-none"
+        />
+      </div>
     </div>
   );
 }
 
 export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: AdminPanelProps) {
+  const { resolvedTheme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'doors' | 'settings'>('doors');
   const [settings, setSettings] = useState(defaultSettings);
   const [selectedDoor, setSelectedDoor] = useState(1);
@@ -231,7 +262,6 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
           setSettings({
             startDate: data.startDate || '',
             title: data.title || '',
-            description: data.description || '',
           });
         }
       } catch (error) {
@@ -436,7 +466,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
   const renderPreview = () => {
     if (!currentDoor || !hasExistingContent) {
       return (
-        <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground">
+        <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground dark:text-gray-400">
           Noch kein Inhalt gespeichert.
         </div>
       );
@@ -445,7 +475,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
     switch (currentDoor.type) {
       case 'text':
         return (
-          <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-4 dark:prose-invert">
+          <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-4 dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.data || ''}</ReactMarkdown>
           </div>
         );
@@ -470,8 +500,8 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
         );
       case 'iframe':
         return (
-          <div className="rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Eingebettete URL:</span>
+          <div className="rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground dark:text-gray-400">
+            <span className="font-medium text-foreground dark:text-white">Eingebettete URL:</span>
             <div className="mt-1 break-words text-primary">{currentDoor.data}</div>
           </div>
         );
@@ -495,10 +525,10 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
           });
         })();
         return (
-          <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-left text-sm text-muted-foreground dark:text-gray-400">
             {displayDate && <p>Zieldatum: {displayDate}</p>}
             {meta.text && (
-              <div className="prose prose-sm max-w-none text-left text-foreground dark:prose-invert">
+              <div className="prose prose-sm max-w-none text-left text-foreground dark:text-white dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{meta.text}</ReactMarkdown>
               </div>
             )}
@@ -523,12 +553,12 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
         }
         return (
           <div className="space-y-2 rounded-md border bg-muted/30 p-4 text-left text-sm">
-            <p className="font-medium text-foreground">Umfrage konfiguriert</p>
+            <p className="font-medium text-foreground dark:text-white">Umfrage konfiguriert</p>
             {pollQuestionPreview && (
-              <p className="text-muted-foreground">Frage: {pollQuestionPreview}</p>
+              <p className="text-muted-foreground dark:text-gray-400">Frage: {pollQuestionPreview}</p>
             )}
             {pollOptionsPreview.length > 0 && (
-              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground dark:text-gray-400">
                 {pollOptionsPreview.map((option, index) => (
                   <li key={index}>{option}</li>
                 ))}
@@ -539,7 +569,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
       }
       default:
         return (
-          <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground dark:text-gray-400">
             Vorschau für diesen Typ ist nicht verfügbar.
           </div>
         );
@@ -555,15 +585,25 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
               <Sparkles className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-xl font-semibold">Admin Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl font-heading font-semibold dark:text-white">Admin Dashboard</h1>
+              <p className="text-sm text-muted-foreground dark:text-gray-300">
                 Inhalte, Umfragen und Einstellungen verwalten
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={onLogout} className="gap-2 self-start sm:self-auto">
-            <LogOut className="h-4 w-4" /> Logout
-          </Button>
+          <div className="flex gap-2 self-start sm:self-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              title={resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            >
+              {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+            <Button variant="outline" onClick={onLogout} className="gap-2">
+              <LogOut className="h-4 w-4" /> Logout
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -582,8 +622,8 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
             <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
               <Card>
                 <CardHeader>
-                  <CardTitle>Türchen auswählen</CardTitle>
-                  <CardDescription>Wähle ein Türchen, um den Inhalt zu bearbeiten.</CardDescription>
+                  <CardTitle className="dark:text-white">Türchen auswählen</CardTitle>
+                  <CardDescription className="dark:text-gray-300">Wähle ein Türchen, um den Inhalt zu bearbeiten.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -598,7 +638,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                           type="button"
                           variant={isActive ? 'default' : filled ? 'secondary' : 'outline'}
                           className={`h-12 items-center justify-center rounded-md p-0 text-sm font-semibold ${
-                            isActive ? '' : filled ? 'text-foreground' : 'text-muted-foreground'
+                            isActive ? '' : filled ? 'text-foreground dark:text-white' : 'text-muted-foreground dark:text-gray-400'
                           }`}
                           onClick={() => setSelectedDoor(day)}
                         >
@@ -614,8 +654,8 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                      <CardTitle>Aktueller Inhalt</CardTitle>
-                      <CardDescription>Vorschau für Türchen {selectedDoor}</CardDescription>
+                      <CardTitle className="dark:text-white">Aktueller Inhalt</CardTitle>
+                      <CardDescription className="dark:text-gray-300">Vorschau für Türchen {selectedDoor}</CardDescription>
                     </div>
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="text-sm font-semibold">{selectedDoor}</AvatarFallback>
@@ -628,16 +668,16 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                           <Badge variant="outline" className="capitalize">
                             {currentDoor.type}
                           </Badge>
-                          {currentDoor.thumbnail && (
-                            <Badge variant="secondary">Thumbnail vorhanden</Badge>
+                          {(currentDoor.thumbnailLight || currentDoor.thumbnailDark) && (
+                            <Badge variant="secondary">Thumbnails vorhanden</Badge>
                           )}
                         </div>
                         {renderPreview()}
                         {currentDoor.text && (
                           <div className="space-y-2 text-sm">
                             <Separator />
-                            <p className="font-medium text-muted-foreground">Zusätzliche Nachricht</p>
-                            <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-3 dark:prose-invert">
+                            <p className="font-medium text-muted-foreground dark:text-gray-300">Zusätzliche Nachricht</p>
+                            <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-3 dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.text}</ReactMarkdown>
                             </div>
                           </div>
@@ -651,12 +691,12 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Inhalt bearbeiten</CardTitle>
-                    <CardDescription>Wähle Format und gib neue Inhalte ein.</CardDescription>
+                    <CardTitle className="dark:text-white">Inhalt bearbeiten</CardTitle>
+                    <CardDescription className="dark:text-gray-300">Wähle Format und gib neue Inhalte ein.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-3">
-                      <Label>Content-Typ</Label>
+                      <Label className="dark:text-white">Content-Typ</Label>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {contentTypeOptions.map((option) => {
                           const Icon = option.icon;
@@ -672,7 +712,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                               <Icon className="h-4 w-4" />
                               <div className="text-left text-xs">
                                 <p className="font-semibold leading-tight">{option.label}</p>
-                                <p className="text-muted-foreground">{option.description}</p>
+                                <p className="text-muted-foreground dark:text-gray-400">{option.description}</p>
                               </div>
                             </Button>
                           );
@@ -682,7 +722,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
                     {selectedContentType === 'text' && (
                       <div className="space-y-2">
-                        <Label htmlFor="text-content">Text (Markdown möglich)</Label>
+                        <Label htmlFor="text-content" className="dark:text-white">Text (Markdown möglich)</Label>
                         <MarkdownEditor
                           id="text-content"
                           value={textContent}
@@ -694,7 +734,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
                     {['image', 'video', 'audio', 'gif', 'puzzle'].includes(selectedContentType) && (
                       <div className="space-y-2">
-                        <Label htmlFor="file-upload">Datei hochladen</Label>
+                        <Label htmlFor="file-upload" className="dark:text-white">Datei hochladen</Label>
                         <Input
                           id="file-upload"
                           type="file"
@@ -717,7 +757,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                     {selectedContentType === 'poll' && (
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="poll-question">Frage</Label>
+                          <Label htmlFor="poll-question" className="dark:text-white">Frage</Label>
                           <Input
                             id="poll-question"
                             value={pollQuestion}
@@ -726,7 +766,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Antwortmöglichkeiten</Label>
+                          <Label className="dark:text-white">Antwortmöglichkeiten</Label>
                           {pollOptions.map((option, index) => (
                             <div key={index} className="flex items-center gap-2">
                               <Input
@@ -763,7 +803,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
                     {selectedContentType === 'iframe' && (
                       <div className="space-y-2">
-                        <Label htmlFor="iframe-url">URL einbetten</Label>
+                        <Label htmlFor="iframe-url" className="dark:text-white">URL einbetten</Label>
                         <Input
                           id="iframe-url"
                           type="url"
@@ -777,19 +817,19 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                     {selectedContentType === 'countdown' && (
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="countdown-date">Countdown-Datum</Label>
+                          <Label htmlFor="countdown-date" className="dark:text-white">Countdown-Datum</Label>
                           <Input
                             id="countdown-date"
                             type="date"
                             value={countdownDate}
                             onChange={(event) => setCountdownDate(event.target.value)}
                           />
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">
                             Das Datum bestimmt, bis wann der Countdown läuft.
                           </p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="countdown-text">Countdown-Text (Markdown)</Label>
+                          <Label htmlFor="countdown-text" className="dark:text-white">Countdown-Text (Markdown)</Label>
                           <MarkdownEditor
                             id="countdown-text"
                             value={countdownText}
@@ -802,7 +842,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
 
                     {selectedContentType !== 'text' && selectedContentType !== 'countdown' && (
                       <div className="space-y-2">
-                        <Label htmlFor="message-content">Optionale Nachricht (Markdown)</Label>
+                        <Label htmlFor="message-content" className="dark:text-white">Optionale Nachricht (Markdown)</Label>
                         <MarkdownEditor
                           id="message-content"
                           value={messageContent}
@@ -829,41 +869,30 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
           <TabsContent value="settings" className="pt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Kalender-Einstellungen</CardTitle>
-                <CardDescription>Steuere Startdatum, Titel und Beschreibung.</CardDescription>
+                <CardTitle className="dark:text-white">Kalender-Einstellungen</CardTitle>
+                <CardDescription className="dark:text-gray-300">Steuere Startdatum, Titel und Beschreibung.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="start-date">Startdatum (Türchen 1)</Label>
+                  <Label htmlFor="start-date" className="dark:text-white">Startdatum (Türchen 1)</Label>
                   <Input
                     id="start-date"
                     type="date"
                     value={settings.startDate}
                     onChange={(event) => setSettings({ ...settings, startDate: event.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">
                     Türchen 1 öffnet an diesem Datum um 00:00 Uhr. Jedes weitere Türchen folgt an den darauffolgenden Tagen.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="calendar-title">Titel</Label>
+                  <Label htmlFor="calendar-title" className="dark:text-white">Titel</Label>
                   <Input
                     id="calendar-title"
                     value={settings.title}
                     onChange={(event) => setSettings({ ...settings, title: event.target.value })}
                     placeholder="Adventskalender 2024"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="calendar-description">Beschreibung</Label>
-                  <textarea
-                    id="calendar-description"
-                    className={textareaClasses}
-                    value={settings.description}
-                    onChange={(event) => setSettings({ ...settings, description: event.target.value })}
-                    placeholder="Öffne jeden Tag ein neues Türchen..."
                   />
                 </div>
               </CardContent>

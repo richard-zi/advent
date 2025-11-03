@@ -49,19 +49,19 @@
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 100%;
     --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 65%;
+    --muted-foreground: 0 0% 85%;
     --accent: 43 74% 66%;
-    --accent-foreground: 0 0% 4%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --ring: 43 74% 66%;
 
-    /* Dark mode Christmas accents */
-    --christmas-red: 0 72% 51%;
-    --christmas-green: 142 76% 36%;
-    --christmas-gold: 43 74% 66%;
+    /* Dark mode Christmas accents - brighter for better visibility */
+    --christmas-red: 0 72% 60%;
+    --christmas-green: 142 76% 45%;
+    --christmas-gold: 43 74% 70%;
   }
 
   * {
@@ -84,12 +84,12 @@ body {
     scrollbar-color: rgba(155, 155, 155, 0.7) transparent;
   }
 
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  .dark .scrollbar-thumb-rounded {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 
   .glass-light {
-    @apply bg-white/80 backdrop-blur-md border border-white/50;
+    @apply bg-background/80 dark:bg-card/80 backdrop-blur-md border border-border/50;
   }
 
   .animate-gradient {
@@ -108,11 +108,11 @@ body {
 
   /* Minimal Glassmorphism */
   .glass {
-    @apply bg-white/70 backdrop-blur-sm border border-border/50;
+    @apply bg-background/70 dark:bg-card/70 backdrop-blur-sm border border-border/50;
   }
 
   .glass-hover:hover {
-    @apply bg-white/80 border-accent/50 shadow-lg;
+    @apply bg-background/90 dark:bg-card/90 border-accent/50 shadow-lg;
   }
 
   /* Gold Glow on Hover */
@@ -186,4 +186,110 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* MDXEditor Dark Mode Styles */
+.dark [class*='mdxeditor'] {
+  --accentBase: hsl(var(--accent));
+  --basePageBg: hsl(var(--background));
+  --baseBg: hsl(var(--card));
+  --baseText: hsl(var(--foreground));
+  --editorBorder: hsl(var(--border));
+  --editorBackground: hsl(var(--background));
+  color-scheme: dark;
+}
+
+.dark .mdxeditor-toolbar {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .mdxeditor-root {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .mdxeditor-root [contenteditable] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .mdxeditor-root button {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .mdxeditor-root button:hover {
+  background-color: hsl(var(--accent) / 0.1) !important;
+}
+
+.dark .mdxeditor-root .mdxeditor-popup {
+  background-color: hsl(var(--popover)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.dark .mdxeditor-root input,
+.dark .mdxeditor-root select,
+.dark .mdxeditor-root textarea {
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Prose Dark Mode - Force ALL text elements to be white */
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose h5,
+.dark .prose h6 {
+  color: white !important;
+}
+
+.dark .prose p,
+.dark .prose li,
+.dark .prose span,
+.dark .prose div {
+  color: white !important;
+}
+
+.dark .prose strong,
+.dark .prose b,
+.dark .prose em,
+.dark .prose i {
+  color: white !important;
+}
+
+.dark .prose code {
+  color: white !important;
+}
+
+.dark .prose a {
+  color: rgb(96, 165, 250) !important; /* blue-400 */
+}
+
+.dark .prose blockquote {
+  color: rgb(209, 213, 219) !important; /* gray-300 */
+  border-left-color: rgb(75, 85, 99) !important; /* gray-600 */
+}
+
+.dark .prose pre {
+  background-color: rgb(31, 41, 55) !important; /* gray-800 */
+}
+
+.dark .prose pre code {
+  color: rgb(229, 231, 235) !important; /* gray-200 */
+}
+
+.dark .prose table {
+  color: white !important;
+}
+
+.dark .prose th,
+.dark .prose td {
+  color: white !important;
+}
+
+.dark .prose ol > li::marker,
+.dark .prose ul > li::marker {
+  color: rgb(156, 163, 175) !important; /* gray-400 */
 }

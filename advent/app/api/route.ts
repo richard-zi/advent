@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
               data: null,
               type: 'not available yet' as const,
               text: null,
-              thumbnail: null,
+              thumbnailLight: null,
+              thumbnailDark: null,
             },
           ];
         }
@@ -71,15 +72,19 @@ export async function GET(request: NextRequest) {
           index
         );
 
-        // Generate thumbnail for all content types
-        let thumbnailUrl: string | null = null;
-        const thumbnail = await ThumbnailService.generateThumbnail(
+        // Generate thumbnails for all content types (light and dark)
+        let thumbnailUrlLight: string | null = null;
+        let thumbnailUrlDark: string | null = null;
+        const thumbnails = await ThumbnailService.generateThumbnail(
           filePath,
           mediaContent.type,
           index
         );
-        if (thumbnail) {
-          thumbnailUrl = `/thumbnails/${path.basename(thumbnail)}`;
+        if (thumbnails.light) {
+          thumbnailUrlLight = `/thumbnails/${path.basename(thumbnails.light)}`;
+        }
+        if (thumbnails.dark) {
+          thumbnailUrlDark = `/thumbnails/${path.basename(thumbnails.dark)}`;
         }
 
         let data: string | null = null;
@@ -98,7 +103,9 @@ export async function GET(request: NextRequest) {
             data = `/api/media/${puzzleImageIndex}`;
 
             if (doorStates[index]?.win) {
-              thumbnailUrl = data;
+              // When puzzle is solved, show the actual puzzle image
+              thumbnailUrlLight = data;
+              thumbnailUrlDark = data;
             }
             break;
           }
@@ -117,7 +124,8 @@ export async function GET(request: NextRequest) {
           data: TimingService.dateCheck(index) ? data : null,
           type: TimingService.dateCheck(index) ? mediaContent.type : 'not available yet',
           text: TimingService.dateCheck(index) ? message : null,
-          thumbnail: TimingService.dateCheck(index) ? thumbnailUrl : null,
+          thumbnailLight: TimingService.dateCheck(index) ? thumbnailUrlLight : null,
+          thumbnailDark: TimingService.dateCheck(index) ? thumbnailUrlDark : null,
           meta: TimingService.dateCheck(index) ? (meta ?? null) : null,
           isSolved:
             mediaContent.type === 'puzzle'
