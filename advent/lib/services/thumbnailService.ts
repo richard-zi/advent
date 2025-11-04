@@ -1180,7 +1180,7 @@ export class ThumbnailService {
       ctx.fillText(finalLine, x, currentY);
     }
   }
-}
+
   private static decodeHtmlEntities(text: string): string {
     if (!text) return '';
     return text
@@ -1199,3 +1199,4 @@ export class ThumbnailService {
       .replace(/&lt;/gi, '<')
       .replace(/&gt;/gi, '>');
   }
+}
