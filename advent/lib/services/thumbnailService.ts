@@ -8,6 +8,25 @@ import { logger } from '../utils/logger';
 import { paths } from '../config/paths';
 import type { FileType } from '../utils/fileUtils';
 
+type MarkdownPreviewLine = {
+  type: 'heading' | 'subheading' | 'paragraph' | 'bullet' | 'numbered' | 'quote' | 'code';
+  text: string;
+  prefix?: string;
+};
+
+type MarkdownTheme = {
+  textColor: string;
+  headingColor: string;
+  accentColor: string;
+  mutedColor: string;
+  bulletColor: string;
+  quoteColor: string;
+  codeBackground: string;
+  codeBorder: string;
+  codeText: string;
+};
+
+
 export class ThumbnailService {
   private static thumbnailCache = new Map<string, string>();
   private static targetWidth = env.thumbnailWidth;
@@ -34,7 +53,7 @@ export class ThumbnailService {
       const lightExists = await this.checkExistingThumbnail(thumbnailPathLight);
       const darkExists = await this.checkExistingThumbnail(thumbnailPathDark);
 
-      if (lightExists && darkExists) {
+      if (type !== 'puzzle' && lightExists && darkExists) {
         return { light: thumbnailPathLight, dark: thumbnailPathDark };
       }
 
@@ -42,10 +61,15 @@ export class ThumbnailService {
 
       switch (type) {
         case 'puzzle':
-          return await this.generatePuzzleThumbnails(thumbnailPathLight, thumbnailPathDark);
+          return await this.generatePuzzleThumbnails(
+            thumbnailPathLight,
+            thumbnailPathDark,
+            typeof doorNumber === 'number' ? doorNumber : undefined
+          );
         case 'video':
-        case 'gif':
           return await this.generateMediaThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
+        case 'gif':
+          return await this.generateGifThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'image':
           return await this.generateImageThumbnails(filePath, thumbnailPathLight, thumbnailPathDark);
         case 'text':
@@ -70,15 +94,55 @@ export class ThumbnailService {
 
   static async generatePuzzleThumbnails(
     thumbnailPathLight: string,
-    thumbnailPathDark: string
+    thumbnailPathDark: string,
+    doorNumber?: number
   ): Promise<{ light: string | null; dark: string | null }> {
-    const puzzleAsset = path.join(paths.assetDir, 'puzzle.jpg');
-    if (fs.existsSync(puzzleAsset)) {
-      // Puzzle thumbnails are the same for both themes (they're actual images)
-      fs.copyFileSync(puzzleAsset, thumbnailPathLight);
-      fs.copyFileSync(puzzleAsset, thumbnailPathDark);
-      return { light: thumbnailPathLight, dark: thumbnailPathDark };
+    try {
+      if (typeof doorNumber === 'number') {
+        const mediumPath = paths.mediumJsonPath;
+        if (fs.existsSync(mediumPath)) {
+          const mediumRaw = fs.readFileSync(mediumPath, 'utf-8');
+          const medium = JSON.parse(mediumRaw) as Record<string, string>;
+          const imageIndex = doorNumber + 1000;
+          const puzzleImage = medium[imageIndex];
+
+          if (puzzleImage) {
+            const puzzleImagePath = path.join(paths.mediaDir, puzzleImage);
+            if (fs.existsSync(puzzleImagePath)) {
+              if (fs.existsSync(thumbnailPathLight)) {
+                const thumbStat = fs.statSync(thumbnailPathLight);
+                const imageStat = fs.statSync(puzzleImagePath);
+                if (thumbStat.mtimeMs >= imageStat.mtimeMs) {
+                  if (!fs.existsSync(thumbnailPathDark)) {
+                    fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+                  }
+                  return { light: thumbnailPathLight, dark: thumbnailPathDark };
+                }
+              }
+
+              await sharp(puzzleImagePath)
+                .resize(this.targetWidth, this.targetWidth, { fit: 'cover' })
+                .jpeg({ quality: this.quality })
+                .toFile(thumbnailPathLight);
+
+              fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+              return { light: thumbnailPathLight, dark: thumbnailPathDark };
+            }
+          }
+        }
+      }
+
+      const puzzleAsset = path.join(paths.assetDir, 'puzzle.jpg');
+      if (fs.existsSync(puzzleAsset)) {
+        // Puzzle thumbnails are the same for both themes (they're actual images)
+        fs.copyFileSync(puzzleAsset, thumbnailPathLight);
+        fs.copyFileSync(puzzleAsset, thumbnailPathDark);
+        return { light: thumbnailPathLight, dark: thumbnailPathDark };
+      }
+    } catch (error) {
+      logger.error('Fehler bei Puzzle-Thumbnail:', error);
     }
+
     return { light: null, dark: null };
   }
 
@@ -102,7 +166,7 @@ export class ThumbnailService {
 
       ffmpeg(filePath)
         .screenshots({
-          timestamps: ['00:00:01.000'],
+          timestamps: ['00:00:00.500'],
           filename: path.basename(tempPath),
           folder: path.dirname(tempPath),
         })
@@ -142,6 +206,33 @@ export class ThumbnailService {
     fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
 
     return { light: thumbnailPathLight, dark: thumbnailPathDark };
+  }
+
+  static async generateGifThumbnails(
+    filePath: string,
+    thumbnailPathLight: string,
+    thumbnailPathDark: string
+  ): Promise<{ light: string | null; dark: string | null }> {
+    try {
+      // Extract first frame from GIF using Sharp
+      const metadata = await sharp(filePath).metadata();
+      const targetHeight = Math.round(
+        this.targetWidth * ((metadata.height || 500) / (metadata.width || 500))
+      );
+
+      // GIFs are the same for both themes (extract first frame)
+      await sharp(filePath, { animated: false })
+        .resize(this.targetWidth, targetHeight, { fit: 'fill' })
+        .jpeg({ quality: this.quality })
+        .toFile(thumbnailPathLight);
+
+      fs.copyFileSync(thumbnailPathLight, thumbnailPathDark);
+
+      return { light: thumbnailPathLight, dark: thumbnailPathDark };
+    } catch (error) {
+      logger.error('Fehler bei GIF-Thumbnail:', error);
+      return { light: null, dark: null };
+    }
   }
 
   static async processTemporaryFile(
@@ -240,8 +331,13 @@ export class ThumbnailService {
       // Remove list markers (-, *, +, 1., 2., etc.)
       .replace(/^[\s]*[-*+]\s+/gm, '')
       .replace(/^[\s]*\d+\.\s+/gm, '')
+      // Remove HTML entities (&#x20;, &nbsp;, etc.)
+      .replace(/&#x[0-9a-fA-F]+;/g, ' ')
+      .replace(/&#\d+;/g, ' ')
+      .replace(/&[a-zA-Z]+;/g, ' ')
       // Remove extra whitespace and newlines
       .replace(/\n{3,}/g, '\n\n')
+      .replace(/\s{2,}/g, ' ')
       .trim();
   }
 
@@ -254,8 +350,7 @@ export class ThumbnailService {
   ): Promise<{ light: string | null; dark: string | null }> {
     try {
       const textContent = fs.readFileSync(filePath, 'utf-8');
-      const cleanText = this.stripMarkdown(textContent);
-      const preview = cleanText.substring(0, 250);
+      const previewLines = this.formatMarkdownPreview(textContent, 14);
 
       // Generate light version
       const canvasLight = createCanvas(500, 500);
@@ -265,14 +360,17 @@ export class ThumbnailService {
       ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
       ctxLight.fillRect(0, 0, 500, 500);
 
-      // Text rendering - dark text on light background
-      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
-      ctxLight.font = 'bold 24px sans-serif';
-      ctxLight.textAlign = 'center';
-      ctxLight.fillText('📝 Text', 250, 60);
-
-      ctxLight.font = '18px sans-serif';
-      this.wrapText(ctxLight, preview, 250, 120, 440, 26);
+      this.drawMarkdownThumbnail(ctxLight, previewLines, {
+        textColor: 'hsl(0, 0%, 28%)',
+        headingColor: 'hsl(0, 0%, 12%)',
+        accentColor: 'hsl(43, 85%, 45%)',
+        mutedColor: 'hsl(0, 0%, 45%)',
+        bulletColor: 'hsl(43, 85%, 45%)',
+        quoteColor: 'rgba(214, 174, 56, 0.25)',
+        codeBackground: 'rgba(248, 248, 248, 0.95)',
+        codeBorder: 'rgba(0, 0, 0, 0.06)',
+        codeText: 'hsl(220, 15%, 20%)',
+      });
 
       const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathLight, bufferLight);
@@ -285,14 +383,17 @@ export class ThumbnailService {
       ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
       ctxDark.fillRect(0, 0, 500, 500);
 
-      // Text rendering - light text on dark background
-      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
-      ctxDark.font = 'bold 24px sans-serif';
-      ctxDark.textAlign = 'center';
-      ctxDark.fillText('📝 Text', 250, 60);
-
-      ctxDark.font = '18px sans-serif';
-      this.wrapText(ctxDark, preview, 250, 120, 440, 26);
+      this.drawMarkdownThumbnail(ctxDark, previewLines, {
+        textColor: 'hsl(0, 0%, 74%)',
+        headingColor: 'hsl(0, 0%, 96%)',
+        accentColor: 'hsl(43, 85%, 58%)',
+        mutedColor: 'hsl(0, 0%, 60%)',
+        bulletColor: 'hsl(43, 85%, 58%)',
+        quoteColor: 'rgba(214, 174, 56, 0.35)',
+        codeBackground: 'rgba(255, 255, 255, 0.08)',
+        codeBorder: 'rgba(255, 255, 255, 0.12)',
+        codeText: 'hsl(43, 85%, 70%)',
+      });
 
       const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathDark, bufferDark);
@@ -329,21 +430,41 @@ export class ThumbnailService {
       ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
       ctxLight.fillRect(0, 0, 500, 500);
 
-      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
-      ctxLight.font = 'bold 28px sans-serif';
-      ctxLight.textAlign = 'center';
-      ctxLight.fillText('📊 Umfrage', 250, 60);
+      ctxLight.strokeStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.fillStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.lineWidth = 2.5;
+      ctxLight.lineCap = 'round';
+      ctxLight.lineJoin = 'round';
 
-      ctxLight.font = 'bold 22px sans-serif';
-      this.wrapText(ctxLight, poll.question, 250, 120, 440, 32);
+      const chartTop = 140;
+      const chartBottom = 320;
+      const chartHeight = chartBottom - chartTop;
+      const barWidth = 42;
+      const barSpacing = 30;
+      const barValues = [0.55, 0.85, 0.65, 1];
+      const totalWidth = (barValues.length * barWidth) + ((barValues.length - 1) * barSpacing);
+      const startX = 250 - totalWidth / 2;
 
-      ctxLight.font = '16px sans-serif';
-      let yPos = 280;
-      poll.options.slice(0, 4).forEach((option: string, index: number) => {
-        const shortOption = option.length > 35 ? option.substring(0, 35) + '...' : option;
-        ctxLight.fillText(`${index + 1}. ${shortOption}`, 250, yPos);
-        yPos += 30;
+      barValues.forEach((value, i) => {
+        const height = chartHeight * value;
+        const x = startX + i * (barWidth + barSpacing);
+        const y = chartBottom - height;
+        ctxLight.beginPath();
+        ctxLight.roundRect(x, y, barWidth, height, 8);
+        ctxLight.fill();
       });
+
+      ctxLight.strokeStyle = 'hsl(0, 0%, 75%)';
+      ctxLight.lineWidth = 2;
+      ctxLight.beginPath();
+      ctxLight.moveTo(startX - 20, chartBottom + 6);
+      ctxLight.lineTo(startX + totalWidth + 20, chartBottom + 6);
+      ctxLight.stroke();
+
+      ctxLight.font = '600 20px "Inter", sans-serif';
+      ctxLight.textAlign = 'center';
+      ctxLight.fillStyle = 'hsl(0, 0%, 30%)';
+      this.wrapText(ctxLight, poll.question, 250, chartBottom + 40, 420, 28);
 
       const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathLight, bufferLight);
@@ -355,21 +476,41 @@ export class ThumbnailService {
       ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
       ctxDark.fillRect(0, 0, 500, 500);
 
-      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
-      ctxDark.font = 'bold 28px sans-serif';
-      ctxDark.textAlign = 'center';
-      ctxDark.fillText('📊 Umfrage', 250, 60);
+      ctxDark.strokeStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.fillStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.lineWidth = 2.5;
+      ctxDark.lineCap = 'round';
+      ctxDark.lineJoin = 'round';
 
-      ctxDark.font = 'bold 22px sans-serif';
-      this.wrapText(ctxDark, poll.question, 250, 120, 440, 32);
+      const chartTopDark = 140;
+      const chartBottomDark = 320;
+      const chartHeightDark = chartBottomDark - chartTopDark;
+      const barWidthDark = 42;
+      const barSpacingDark = 30;
+      const barValuesDark = [0.55, 0.85, 0.65, 1];
+      const totalWidthDark = (barValuesDark.length * barWidthDark) + ((barValuesDark.length - 1) * barSpacingDark);
+      const startXDark = 250 - totalWidthDark / 2;
 
-      ctxDark.font = '16px sans-serif';
-      yPos = 280;
-      poll.options.slice(0, 4).forEach((option: string, index: number) => {
-        const shortOption = option.length > 35 ? option.substring(0, 35) + '...' : option;
-        ctxDark.fillText(`${index + 1}. ${shortOption}`, 250, yPos);
-        yPos += 30;
+      barValuesDark.forEach((value, i) => {
+        const height = chartHeightDark * value;
+        const x = startXDark + i * (barWidthDark + barSpacingDark);
+        const y = chartBottomDark - height;
+        ctxDark.beginPath();
+        ctxDark.roundRect(x, y, barWidthDark, height, 8);
+        ctxDark.fill();
       });
+
+      ctxDark.strokeStyle = 'hsl(0, 0%, 55%)';
+      ctxDark.lineWidth = 2;
+      ctxDark.beginPath();
+      ctxDark.moveTo(startXDark - 20, chartBottomDark + 6);
+      ctxDark.lineTo(startXDark + totalWidthDark + 20, chartBottomDark + 6);
+      ctxDark.stroke();
+
+      ctxDark.font = '600 20px "Inter", sans-serif';
+      ctxDark.textAlign = 'center';
+      ctxDark.fillStyle = 'hsl(0, 0%, 70%)';
+      this.wrapText(ctxDark, poll.question, 250, chartBottomDark + 40, 420, 28);
 
       const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathDark, bufferDark);
@@ -394,13 +535,26 @@ export class ThumbnailService {
       ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
       ctxLight.fillRect(0, 0, 500, 500);
 
-      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
-      ctxLight.font = 'bold 120px sans-serif';
-      ctxLight.textAlign = 'center';
-      ctxLight.fillText('🎵', 250, 280);
+      // Lucide AudioWaveform icon - smoother, more elegant
+      ctxLight.strokeStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.lineWidth = 3;
+      ctxLight.lineCap = 'round';
+      ctxLight.lineJoin = 'round';
 
-      ctxLight.font = 'bold 32px sans-serif';
-      ctxLight.fillText('Audio', 250, 380);
+      // Waveform lines with varying heights (Lucide style)
+      const waveHeights = [50, 110, 70, 140, 90, 130, 60, 120, 80, 100, 65];
+      const lineSpacing = 20;
+      const totalWidth = (waveHeights.length - 1) * lineSpacing;
+      const startX = 250 - totalWidth / 2;
+
+      waveHeights.forEach((height, i) => {
+        const x = startX + i * lineSpacing;
+        const y = 250 - height / 2;
+        ctxLight.beginPath();
+        ctxLight.moveTo(x, y);
+        ctxLight.lineTo(x, y + height);
+        ctxLight.stroke();
+      });
 
       const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathLight, bufferLight);
@@ -412,13 +566,20 @@ export class ThumbnailService {
       ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
       ctxDark.fillRect(0, 0, 500, 500);
 
-      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
-      ctxDark.font = 'bold 120px sans-serif';
-      ctxDark.textAlign = 'center';
-      ctxDark.fillText('🎵', 250, 280);
+      // Lucide AudioWaveform icon - smoother, more elegant
+      ctxDark.strokeStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.lineWidth = 3;
+      ctxDark.lineCap = 'round';
+      ctxDark.lineJoin = 'round';
 
-      ctxDark.font = 'bold 32px sans-serif';
-      ctxDark.fillText('Audio', 250, 380);
+      waveHeights.forEach((height, i) => {
+        const x = startX + i * lineSpacing;
+        const y = 250 - height / 2;
+        ctxDark.beginPath();
+        ctxDark.moveTo(x, y);
+        ctxDark.lineTo(x, y + height);
+        ctxDark.stroke();
+      });
 
       const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathDark, bufferDark);
@@ -442,14 +603,43 @@ export class ThumbnailService {
       ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
       ctxLight.fillRect(0, 0, 500, 500);
 
-      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
-      ctxLight.font = 'bold 120px sans-serif';
-      ctxLight.textAlign = 'center';
-      ctxLight.fillText('⏱️', 250, 230);
+      // Lucide Clock icon
+      ctxLight.strokeStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.fillStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.lineWidth = 2.5;
+      ctxLight.lineCap = 'round';
+      ctxLight.lineJoin = 'round';
 
-      ctxLight.font = 'bold 32px sans-serif';
-      ctxLight.fillText('Christmas', 250, 320);
-      ctxLight.fillText('Countdown', 250, 370);
+      // Clock circle centered icon
+      const clockCenterX = 250;
+      const clockCenterY = 250;
+      const clockRadius = 110;
+
+      ctxLight.beginPath();
+      ctxLight.arc(clockCenterX, clockCenterY, clockRadius, 0, Math.PI * 2);
+      ctxLight.stroke();
+
+      // Clock hands (12:00 position for countdown)
+      // Hour hand (pointing up)
+      ctxLight.lineWidth = 4;
+      ctxLight.beginPath();
+      ctxLight.moveTo(clockCenterX, clockCenterY);
+      ctxLight.lineTo(clockCenterX, clockCenterY - clockRadius * 0.45);
+      ctxLight.stroke();
+
+      // Minute hand (pointing up)
+      ctxLight.lineWidth = 3;
+      ctxLight.beginPath();
+      ctxLight.moveTo(clockCenterX, clockCenterY);
+      ctxLight.lineTo(clockCenterX, clockCenterY - clockRadius * 0.7);
+      ctxLight.stroke();
+
+      // Center dot
+      ctxLight.beginPath();
+      ctxLight.arc(clockCenterX, clockCenterY, 5, 0, Math.PI * 2);
+      ctxLight.fill();
+
+      // Optional label removed per user request
 
       const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathLight, bufferLight);
@@ -461,14 +651,39 @@ export class ThumbnailService {
       ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
       ctxDark.fillRect(0, 0, 500, 500);
 
-      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
-      ctxDark.font = 'bold 120px sans-serif';
-      ctxDark.textAlign = 'center';
-      ctxDark.fillText('⏱️', 250, 230);
+      // Lucide Clock icon
+      ctxDark.strokeStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.fillStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.lineWidth = 2.5;
+      ctxDark.lineCap = 'round';
+      ctxDark.lineJoin = 'round';
 
-      ctxDark.font = 'bold 32px sans-serif';
-      ctxDark.fillText('Christmas', 250, 320);
-      ctxDark.fillText('Countdown', 250, 370);
+      // Clock circle centered icon
+      ctxDark.beginPath();
+      ctxDark.arc(clockCenterX, clockCenterY, clockRadius, 0, Math.PI * 2);
+      ctxDark.stroke();
+
+      // Clock hands (12:00 position for countdown)
+      // Hour hand (pointing up)
+      ctxDark.lineWidth = 4;
+      ctxDark.beginPath();
+      ctxDark.moveTo(clockCenterX, clockCenterY);
+      ctxDark.lineTo(clockCenterX, clockCenterY - clockRadius * 0.45);
+      ctxDark.stroke();
+
+      // Minute hand (pointing up)
+      ctxDark.lineWidth = 3;
+      ctxDark.beginPath();
+      ctxDark.moveTo(clockCenterX, clockCenterY);
+      ctxDark.lineTo(clockCenterX, clockCenterY - clockRadius * 0.7);
+      ctxDark.stroke();
+
+      // Center dot
+      ctxDark.beginPath();
+      ctxDark.arc(clockCenterX, clockCenterY, 5, 0, Math.PI * 2);
+      ctxDark.fill();
+
+      // Optional label removed per user request
 
       const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathDark, bufferDark);
@@ -513,38 +728,97 @@ export class ThumbnailService {
         }
       }
 
-      // Fallback: Generic iframe thumbnail - light version
+      // Fallback: Generic iframe thumbnail with Lucide Monitor icon - light version
       const canvasLight = createCanvas(500, 500);
       const ctxLight = canvasLight.getContext('2d');
 
       ctxLight.fillStyle = 'hsl(0, 0%, 100%)';
       ctxLight.fillRect(0, 0, 500, 500);
 
-      ctxLight.fillStyle = 'hsl(0, 0%, 4%)';
-      ctxLight.font = 'bold 120px sans-serif';
-      ctxLight.textAlign = 'center';
-      ctxLight.fillText('🖼️', 250, 280);
+      // Lucide Monitor icon
+      ctxLight.strokeStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.fillStyle = 'hsl(0, 0%, 20%)';
+      ctxLight.lineWidth = 2.5;
+      ctxLight.lineCap = 'round';
+      ctxLight.lineJoin = 'round';
 
-      ctxLight.font = 'bold 32px sans-serif';
-      ctxLight.fillText('Iframe', 250, 380);
+      // Monitor screen (larger, better proportions)
+      const screenX = 100;
+      const screenY = 100;
+      const screenWidth = 300;
+      const screenHeight = 200;
+
+      ctxLight.beginPath();
+      ctxLight.roundRect(screenX, screenY, screenWidth, screenHeight, 8);
+      ctxLight.stroke();
+
+      // Monitor stand (V-shape)
+      ctxLight.beginPath();
+      ctxLight.moveTo(220, screenY + screenHeight);
+      ctxLight.lineTo(250, screenY + screenHeight + 50);
+      ctxLight.lineTo(280, screenY + screenHeight);
+      ctxLight.stroke();
+
+      // Monitor base (horizontal line)
+      ctxLight.beginPath();
+      ctxLight.moveTo(200, screenY + screenHeight + 50);
+      ctxLight.lineTo(300, screenY + screenHeight + 50);
+      ctxLight.stroke();
+
+      // Play button (triangle) in the center
+      const playSize = 35;
+      const playCenterX = screenX + screenWidth / 2;
+      const playCenterY = screenY + screenHeight / 2;
+
+      ctxLight.beginPath();
+      ctxLight.moveTo(playCenterX - playSize / 3, playCenterY - playSize / 2);
+      ctxLight.lineTo(playCenterX - playSize / 3, playCenterY + playSize / 2);
+      ctxLight.lineTo(playCenterX + playSize / 2, playCenterY);
+      ctxLight.closePath();
+      ctxLight.fill();
 
       const bufferLight = canvasLight.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathLight, bufferLight);
 
-      // Fallback: Generic iframe thumbnail - dark version
+      // Fallback: Generic iframe thumbnail with Lucide Monitor icon - dark version
       const canvasDark = createCanvas(500, 500);
       const ctxDark = canvasDark.getContext('2d');
 
       ctxDark.fillStyle = 'hsl(0, 0%, 4%)';
       ctxDark.fillRect(0, 0, 500, 500);
 
-      ctxDark.fillStyle = 'hsl(0, 0%, 98%)';
-      ctxDark.font = 'bold 120px sans-serif';
-      ctxDark.textAlign = 'center';
-      ctxDark.fillText('🖼️', 250, 280);
+      // Lucide Monitor icon
+      ctxDark.strokeStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.fillStyle = 'hsl(0, 0%, 80%)';
+      ctxDark.lineWidth = 2.5;
+      ctxDark.lineCap = 'round';
+      ctxDark.lineJoin = 'round';
 
-      ctxDark.font = 'bold 32px sans-serif';
-      ctxDark.fillText('Iframe', 250, 380);
+      // Monitor screen (larger, better proportions)
+      ctxDark.beginPath();
+      ctxDark.roundRect(screenX, screenY, screenWidth, screenHeight, 8);
+      ctxDark.stroke();
+
+      // Monitor stand (V-shape)
+      ctxDark.beginPath();
+      ctxDark.moveTo(220, screenY + screenHeight);
+      ctxDark.lineTo(250, screenY + screenHeight + 50);
+      ctxDark.lineTo(280, screenY + screenHeight);
+      ctxDark.stroke();
+
+      // Monitor base (horizontal line)
+      ctxDark.beginPath();
+      ctxDark.moveTo(200, screenY + screenHeight + 50);
+      ctxDark.lineTo(300, screenY + screenHeight + 50);
+      ctxDark.stroke();
+
+      // Play button (triangle) in the center
+      ctxDark.beginPath();
+      ctxDark.moveTo(playCenterX - playSize / 3, playCenterY - playSize / 2);
+      ctxDark.lineTo(playCenterX - playSize / 3, playCenterY + playSize / 2);
+      ctxDark.lineTo(playCenterX + playSize / 2, playCenterY);
+      ctxDark.closePath();
+      ctxDark.fill();
 
       const bufferDark = canvasDark.toBuffer('image/jpeg', 85);
       fs.writeFileSync(thumbnailPathDark, bufferDark);
@@ -554,6 +828,321 @@ export class ThumbnailService {
       logger.error('Fehler bei Iframe-Thumbnail:', error);
       return { light: null, dark: null };
     }
+  }
+
+  private static cleanInlineMarkdown(text: string): string {
+    const decoded = text
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/!\[[^\]]*\]\([^\)]+\)/g, '')
+      .replace(/(\*\*|__)(.*?)\1/g, '$2')
+      .replace(/(\*|_)(.*?)\1/g, '$2')
+      .replace(/~~(.*?)~~/g, '$1')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return this.decodeHtmlEntities(decoded);
+  }
+
+  private static formatMarkdownPreview(text: string, maxItems = 14): MarkdownPreviewLine[] {
+    const result: MarkdownPreviewLine[] = [];
+    const lines = text.split(/\r?\n/);
+    let inCodeBlock = false;
+
+    for (const rawLine of lines) {
+      if (result.length >= maxItems) {
+        break;
+      }
+
+      const normalized = rawLine.replace(/\t/g, '  ');
+      const trimmedEnd = normalized.trimEnd();
+
+      if (trimmedEnd.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+
+      if (inCodeBlock) {
+        if (trimmedEnd.length > 0) {
+          result.push({
+            type: 'code',
+            text: trimmedEnd.length > 110 ? `${trimmedEnd.substring(0, 107)}...` : trimmedEnd,
+          });
+        }
+        continue;
+      }
+
+      const trimmed = trimmedEnd.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      if (/^#{1,6}\s+/.test(trimmed)) {
+        const level = trimmed.match(/^#{1,6}/)?.[0]?.length ?? 1;
+        const headingText = this.cleanInlineMarkdown(trimmed.replace(/^#{1,6}\s+/, ''));
+        if (headingText) {
+          result.push({
+            type: level <= 2 ? 'heading' : 'subheading',
+            text: headingText.substring(0, 140),
+          });
+        }
+        continue;
+      }
+
+      if (/^>\s+/.test(trimmed)) {
+        const quoteText = this.cleanInlineMarkdown(trimmed.replace(/^>\s+/, ''));
+        if (quoteText) {
+          result.push({
+            type: 'quote',
+            text: quoteText.substring(0, 140),
+          });
+        }
+        continue;
+      }
+
+      if (/^[-*+]\s+/.test(trimmed)) {
+        const bulletText = this.cleanInlineMarkdown(trimmed.replace(/^[-*+]\s+/, ''));
+        if (bulletText) {
+          result.push({
+            type: 'bullet',
+            text: bulletText.substring(0, 140),
+          });
+        }
+        continue;
+      }
+
+      const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      if (numberedMatch) {
+        const prefix = `${numberedMatch[1]}.`;
+        const numberedText = this.cleanInlineMarkdown(numberedMatch[2]);
+        if (numberedText) {
+          result.push({
+            type: 'numbered',
+            text: numberedText.substring(0, 140),
+            prefix,
+          });
+        }
+        continue;
+      }
+
+      const cleaned = this.cleanInlineMarkdown(trimmed);
+      if (cleaned) {
+        result.push({
+          type: 'paragraph',
+          text: cleaned.substring(0, 160),
+        });
+      }
+    }
+
+    if (result.length === 0) {
+      const fallback = this.cleanInlineMarkdown(text);
+      if (fallback) {
+        result.push({ type: 'paragraph', text: fallback.substring(0, 160) });
+      }
+    }
+
+    return result;
+  }
+
+  private static drawMarkdownThumbnail(
+    ctx: any,
+    lines: MarkdownPreviewLine[],
+    theme: MarkdownTheme
+  ): void {
+    const startX = 60;
+    const maxWidth = 380;
+    const maxRenderedLines = 8;
+    let renderedLines = 0;
+    let currentY = 80;
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    for (let index = 0; index < lines.length && renderedLines < maxRenderedLines; index++) {
+      const line = lines[index];
+      let font = '500 18px "Inter", sans-serif';
+      let color = theme.textColor;
+      let lineHeight = 28;
+      let extraSpacing = renderedLines > 0 ? 6 : 0;
+
+      switch (line.type) {
+        case 'heading':
+          font = '700 30px "Inter", sans-serif';
+          color = theme.headingColor;
+          lineHeight = 40;
+          extraSpacing = renderedLines > 0 ? 12 : 0;
+          break;
+        case 'subheading':
+          font = '600 22px "Inter", sans-serif';
+          color = theme.headingColor;
+          lineHeight = 32;
+          extraSpacing = 8;
+          break;
+        case 'quote':
+          font = 'italic 18px "Georgia", serif';
+          color = theme.mutedColor;
+          lineHeight = 30;
+          extraSpacing = 8;
+          break;
+        case 'bullet':
+        case 'numbered':
+          font = '500 18px "Inter", sans-serif';
+          color = theme.textColor;
+          lineHeight = 28;
+          extraSpacing = 6;
+          break;
+        case 'code':
+          font = '600 17px "Fira Code", monospace';
+          color = theme.codeText;
+          lineHeight = 26;
+          extraSpacing = 10;
+          break;
+        default:
+          break;
+      }
+
+      currentY += extraSpacing;
+      ctx.font = font;
+      ctx.fillStyle = color;
+
+      const sanitizedText =
+        line.type === 'code' ? line.text : line.text.replace(/\s+/g, ' ').trim();
+
+      let indent = 0;
+      let prefixWidth = 0;
+
+      if (line.type === 'bullet') {
+        indent = 20;
+      } else if (line.type === 'quote') {
+        indent = 20;
+      } else if (line.type === 'code') {
+        indent = 18;
+      } else if (line.type === 'numbered' && line.prefix) {
+        ctx.save();
+        ctx.font = '600 18px "Inter", sans-serif';
+        prefixWidth = ctx.measureText(line.prefix).width;
+        ctx.restore();
+        indent = Math.max(prefixWidth + 14, 30);
+      }
+
+      const availableWidth = Math.max(maxWidth - indent, 140);
+      const wrapped = this.wrapMarkdownText(ctx, sanitizedText, availableWidth);
+      if (wrapped.length === 0) {
+        continue;
+      }
+
+      const remainingLines = maxRenderedLines - renderedLines;
+      const linesToRender = Math.min(wrapped.length, remainingLines);
+
+      const blockTop = currentY;
+      const blockHeight = lineHeight * linesToRender;
+
+      if (line.type === 'code') {
+        ctx.save();
+        ctx.fillStyle = theme.codeBackground;
+        ctx.strokeStyle = theme.codeBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(startX - 18, blockTop - 8, maxWidth + 36, blockHeight + 16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        indent = 18;
+        currentY += 4;
+      } else if (line.type === 'quote') {
+        ctx.save();
+        ctx.fillStyle = theme.quoteColor;
+        ctx.fillRect(startX - 16, blockTop - 2, 4, blockHeight + 4);
+        ctx.restore();
+      } else if (line.type === 'bullet') {
+        ctx.save();
+        ctx.fillStyle = theme.bulletColor;
+        ctx.beginPath();
+        ctx.arc(startX - 6, blockTop + lineHeight / 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (line.type === 'numbered' && line.prefix) {
+        ctx.save();
+        ctx.font = '600 18px "Inter", sans-serif';
+        ctx.fillStyle = theme.accentColor;
+        ctx.fillText(line.prefix, startX - 10, blockTop);
+        ctx.restore();
+      } else if (line.type === 'paragraph' || line.type === 'heading' || line.type === 'subheading') {
+        indent = 0;
+      }
+
+      const drawEllipsisOnLastLine =
+        linesToRender === remainingLines &&
+        (wrapped.length > linesToRender || index < lines.length - 1);
+
+      for (let i = 0; i < linesToRender; i++) {
+        let segment = wrapped[i];
+
+        if (drawEllipsisOnLastLine && i === linesToRender - 1) {
+          segment = this.truncateWithEllipsis(ctx, segment, availableWidth);
+        }
+
+        ctx.fillText(segment, startX + indent, currentY);
+        currentY += lineHeight;
+        renderedLines++;
+      }
+
+      if (line.type === 'code') {
+        currentY += 6;
+      }
+    }
+  }
+
+  private static wrapMarkdownText(ctx: any, text: string, maxWidth: number): string[] {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      return [];
+    }
+
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(testLine).width <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          let truncated = word;
+          while (truncated.length > 1 && ctx.measureText(`${truncated}…`).width > maxWidth) {
+            truncated = truncated.slice(0, -1);
+          }
+          lines.push(truncated);
+          currentLine = word.slice(truncated.length);
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  }
+
+  private static truncateWithEllipsis(ctx: any, text: string, maxWidth: number): string {
+    let trimmed = text.trim();
+    if (!trimmed) {
+      return '…';
+    }
+
+    if (ctx.measureText(`${trimmed} …`).width <= maxWidth) {
+      return `${trimmed} …`;
+    }
+
+    while (trimmed.length > 1 && ctx.measureText(`${trimmed} …`).width > maxWidth) {
+      trimmed = trimmed.slice(0, -1).trimEnd();
+    }
+
+    return `${trimmed} …`;
   }
 
   // Helper function for text wrapping
@@ -592,3 +1181,21 @@ export class ThumbnailService {
     }
   }
 }
+  private static decodeHtmlEntities(text: string): string {
+    if (!text) return '';
+    return text
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+        const code = parseInt(hex, 16);
+        return Number.isFinite(code) ? String.fromCharCode(code) : '';
+      })
+      .replace(/&#(\d+);/g, (_, dec) => {
+        const code = parseInt(dec, 10);
+        return Number.isFinite(code) ? String.fromCharCode(code) : '';
+      })
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&apos;/gi, "'")
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>');
+  }

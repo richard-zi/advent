@@ -489,7 +489,14 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
       case 'video':
         return (
           <div className="overflow-hidden rounded-md border">
-            <video src={currentDoor.data || ''} controls className="max-h-80 w-full" preload="metadata" />
+            <video
+              src={currentDoor.data || ''}
+              controls
+              controlsList=""
+              className="max-h-80 w-full"
+              preload="metadata"
+              playsInline
+            />
           </div>
         );
       case 'audio':

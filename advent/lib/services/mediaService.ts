@@ -134,7 +134,12 @@ export class MediaService {
             return { type: 'poll' };
           }
           if (trimmed === '<[puzzle]>') {
-            return { type: 'puzzle' };
+            const puzzleImageIndex = this.getPuzzleImageIndex(index);
+            return {
+              type: 'puzzle',
+              data: `/api/media/${puzzleImageIndex}`,
+              meta: { puzzleImageIndex },
+            };
           }
 
           // Check for iframe content

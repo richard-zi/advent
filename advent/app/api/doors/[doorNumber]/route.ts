@@ -77,12 +77,12 @@ export async function GET(
     let thumbnail: string | null = null;
     const meta = mediaContent.meta ?? null;
     if (['video', 'image', 'gif'].includes(mediaContent.type)) {
-      const thumbnailPath = await ThumbnailService.generateThumbnail(
+      const thumbnailPaths = await ThumbnailService.generateThumbnail(
         filePath,
         mediaContent.type as 'video' | 'image' | 'gif'
       );
-      if (thumbnailPath) {
-        thumbnail = `/thumbnails/${path.basename(thumbnailPath)}`;
+      if (thumbnailPaths.light) {
+        thumbnail = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
       }
     }
 
@@ -112,6 +112,9 @@ export async function GET(
       text: message,
       thumbnail,
       meta,
+      isSolved: mediaContent.type === 'puzzle'
+        ? Boolean(doorStates[doorNumber]?.win)
+        : undefined,
     } as DoorContent, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',

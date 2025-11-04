@@ -1,8 +1,8 @@
 export const env = {
   // Required
   jwtSecret: process.env.JWT_SECRET || 'default-secret-change-in-production',
-  ffmpegPath: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
-  ffprobePath: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
+  ffmpegPath: process.env.FFMPEG_PATH || '',
+  ffprobePath: process.env.FFPROBE_PATH || '',
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || 'admin',
 

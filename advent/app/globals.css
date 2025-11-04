@@ -63,10 +63,6 @@
     --christmas-green: 142 76% 45%;
     --christmas-gold: 43 74% 70%;
   }
-
-  * {
-    @apply transition-colors duration-200;
-  }
 }
 
 body {
@@ -160,23 +156,6 @@ body {
 .dark ::-webkit-scrollbar-thumb:hover {
   @apply bg-white/30;
 }
-
-/* Smooth fade-in animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
 
 
 @layer base {

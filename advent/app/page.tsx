@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 export default function Home() {
   const { resolvedTheme, setTheme } = useTheme();
   const [doors, setDoors] = useState<DoorContent[]>([]);
+  const [doorStates, setDoorStates] = useState<Record<number, { win?: boolean }>>({});
   const [doorOrder, setDoorOrder] = useState<number[]>([]);
   const [openedDoors, setOpenedDoors] = useState<number[]>([]);
   const [selectedDoor, setSelectedDoor] = useState<DoorContent | null>(null);
@@ -47,7 +48,21 @@ export default function Home() {
     const snowPref = localStorage.getItem('showSnow');
     if (snowPref !== null) setShowSnow(JSON.parse(snowPref));
 
-    fetchDoors();
+    const storedDoorStates = localStorage.getItem('doorStates');
+    let initialDoorStates: Record<number, { win?: boolean }> | undefined;
+
+    if (storedDoorStates) {
+      try {
+        initialDoorStates = JSON.parse(storedDoorStates);
+        if (initialDoorStates && typeof initialDoorStates === 'object') {
+          setDoorStates(initialDoorStates);
+        }
+      } catch (error) {
+        console.error('Error parsing stored door states:', error);
+      }
+    }
+
+    fetchDoors(initialDoorStates);
     fetchSettings();
   }, []);
 
@@ -59,9 +74,17 @@ export default function Home() {
     localStorage.setItem('showSnow', JSON.stringify(showSnow));
   }, [showSnow]);
 
-  const fetchDoors = async () => {
+  const fetchDoors = async (statesOverride?: Record<number, { win?: boolean }>) => {
     try {
-      const response = await fetch('/api');
+      const params = new URLSearchParams();
+      const effectiveStates = statesOverride ?? doorStates;
+
+      if (effectiveStates && Object.keys(effectiveStates).length > 0) {
+        params.set('doorStates', JSON.stringify(effectiveStates));
+      }
+
+      const query = params.toString();
+      const response = await fetch(query ? `/api?${query}` : '/api');
       const data = await response.json();
 
       // Convert object to array if needed
@@ -75,6 +98,7 @@ export default function Home() {
             thumbnailLight: value.thumbnailLight || null,
             thumbnailDark: value.thumbnailDark || null,
             meta: value.meta || null,
+            isSolved: value.isSolved ?? undefined,
           }));
 
       setDoors(doorsArray);
@@ -109,7 +133,15 @@ export default function Home() {
 
     if (today >= doorDate && door.type !== 'not available yet') {
       try {
-        const response = await fetch(`/api/doors/${door.day}`);
+        const params = new URLSearchParams();
+        if (doorStates && Object.keys(doorStates).length > 0) {
+          params.set('doorStates', JSON.stringify(doorStates));
+        }
+
+        const query = params.toString();
+        const response = await fetch(
+          `/api/doors/${door.day}${query ? `?${query}` : ''}`
+        );
 
         if (response.status === 403) {
           return;
@@ -145,6 +177,49 @@ export default function Home() {
   };
 
   const isDoorOpened = (day: number) => openedDoors.includes(day);
+
+  const handlePuzzleSolved = (doorNumber: number) => {
+    if (!doorNumber) return;
+
+    setDoorStates((prev) => {
+      if (prev[doorNumber]?.win) {
+        return prev;
+      }
+
+      const updated = {
+        ...prev,
+        [doorNumber]: { ...(prev[doorNumber] || {}), win: true },
+      };
+
+      try {
+        localStorage.setItem('doorStates', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Error saving door states:', error);
+      }
+
+      fetchDoors(updated);
+      return updated;
+    });
+
+    setDoors((current) =>
+      current.map((doorItem) =>
+        doorItem.day === doorNumber
+          ? {
+              ...doorItem,
+              isSolved: true,
+              thumbnailLight: doorItem.data ?? doorItem.thumbnailLight,
+              thumbnailDark: doorItem.data ?? doorItem.thumbnailDark,
+            }
+          : doorItem
+      )
+    );
+
+    setSelectedDoor((current) =>
+      current && current.day === doorNumber
+        ? { ...current, isSolved: true }
+        : current
+    );
+  };
 
   if (loading || doorOrder.length === 0) {
     return (
@@ -285,6 +360,7 @@ export default function Home() {
           door={selectedDoor}
           onClose={() => setSelectedDoor(null)}
           darkMode={isDarkMode}
+          onPuzzleSolved={handlePuzzleSolved}
         />
       )}
     </div>

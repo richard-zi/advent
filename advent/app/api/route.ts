@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
             break;
           case 'puzzle': {
             const puzzleImageIndex = MediaService.getPuzzleImageIndex(index);
-            data = `/api/media/${puzzleImageIndex}`;
+            data = mediaContent.data || `/api/media/${puzzleImageIndex}`;
 
             if (doorStates[index]?.win) {
               // When puzzle is solved, show the actual puzzle image

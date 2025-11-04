@@ -16,14 +16,115 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import Confetti from '@/components/Confetti';
+import PuzzleGame from '@/components/PuzzleGame';
 
 interface ContentModalProps {
   door: DoorContent;
   onClose: () => void;
   darkMode: boolean;
+  onPuzzleSolved?: (doorNumber: number) => void;
 }
 
-export default function ContentModal({ door, onClose, darkMode }: ContentModalProps) {
+export default function ContentModal({ door, onClose, darkMode, onPuzzleSolved }: ContentModalProps) {
+  // Poll state management
+  const [pollData, setPollData] = useState<any>(null);
+  const [pollVotes, setPollVotes] = useState<Record<string, number>>({});
+  const [userVote, setUserVote] = useState<string | null>(null);
+  const [pollLoading, setPollLoading] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [puzzleSolved, setPuzzleSolved] = useState(door.isSolved ?? false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Get or create userId for poll voting
+  const getUserId = () => {
+    if (typeof window === 'undefined') return null;
+
+    let userId = localStorage.getItem('adventCalendarUserId');
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('adventCalendarUserId', userId);
+    }
+    return userId;
+  };
+
+  // Load poll data when door is a poll
+  useEffect(() => {
+    if (door.type === 'poll' && door.day) {
+      const loadPoll = async () => {
+        setPollLoading(true);
+        setPollError(null);
+
+        try {
+          const userId = getUserId();
+          const response = await fetch(`/api/poll/${door.day}${userId ? `?userId=${userId}` : ''}`);
+
+          if (!response.ok) {
+            throw new Error('Fehler beim Laden der Umfrage');
+          }
+
+          const data = await response.json();
+          setPollData(data.pollData);
+          setPollVotes(data.votes || {});
+          setUserVote(data.userVote || null);
+          setHasVoted(!!data.userVote);
+        } catch (error) {
+          console.error('Poll load error:', error);
+          setPollError('Umfrage konnte nicht geladen werden');
+        } finally {
+          setPollLoading(false);
+        }
+      };
+
+      loadPoll();
+    }
+  }, [door.type, door.day]);
+
+  useEffect(() => {
+    const solved = door.isSolved ?? false;
+    setPuzzleSolved(solved);
+    if (!solved) {
+      setShowConfetti(false);
+    }
+  }, [door.isSolved]);
+
+  // Handle poll vote submission
+  const handleVote = async (option: string) => {
+    if (hasVoted || !pollData) return;
+
+    const userId = getUserId();
+    if (!userId) {
+      setPollError('Fehler beim Speichern der Stimme');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/poll/${door.day}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ option, userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Fehler beim Abstimmen');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPollVotes(data.votes);
+        setUserVote(option);
+        setHasVoted(true);
+      } else {
+        setPollError('Du hast bereits abgestimmt');
+      }
+    } catch (error) {
+      console.error('Vote error:', error);
+      setPollError('Fehler beim Abstimmen');
+    }
+  };
+
   const getTypeLabel = () => {
     switch (door.type) {
       case 'image': return 'Bild';
@@ -37,6 +138,13 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
       case 'iframe': return 'Eingebettet';
       default: return 'Inhalt';
     }
+  };
+
+  const handlePuzzleSolved = () => {
+    if (!door.day) return;
+    setPuzzleSolved(true);
+    setShowConfetti(true);
+    onPuzzleSolved?.(door.day);
   };
 
   const renderContent = () => {
@@ -59,8 +167,11 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
             <video
               src={door.data || ''}
               controls
+              controlsList=""
               className="w-full h-full rounded-lg"
               autoPlay
+              preload="metadata"
+              playsInline
             />
           </div>
         );
@@ -117,15 +228,6 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
               <h3 className="text-2xl font-semibold text-foreground dark:text-white">
                 Countdown
               </h3>
-              {displayDate && (
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                  Bis zum {displayDate.toLocaleDateString('de-DE', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </p>
-              )}
             </div>
             <CountdownTimer targetDate={targetDate} />
             {countdownText && (
@@ -140,20 +242,159 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
       }
 
       case 'poll':
+        if (pollLoading) {
+          return (
+            <div className="text-center py-8">
+              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
+              <p className="text-foreground dark:text-white">Umfrage wird geladen...</p>
+            </div>
+          );
+        }
+
+        if (pollError) {
+          return (
+            <div className="text-center py-8">
+              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-red-500" />
+              <p className="text-red-500 dark:text-red-400">{pollError}</p>
+            </div>
+          );
+        }
+
+        if (!pollData) {
+          return (
+            <div className="text-center py-8">
+              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
+              <p className="text-foreground dark:text-white">Keine Umfrage verfügbar</p>
+            </div>
+          );
+        }
+
+        const totalVotes = Object.values(pollVotes).reduce((sum: number, count) => sum + (count as number), 0);
+
         return (
-          <div className="text-center py-8">
-            <MessageSquare className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
-            <p className="text-foreground dark:text-white">Umfrage wird geladen...</p>
+          <div className="space-y-6 py-4">
+            {/* Poll Question */}
+            <div className="text-center">
+              <MessageSquare className="w-12 h-12 mx-auto mb-4 text-christmas-gold" />
+              <h3 className="text-xl font-semibold text-foreground dark:text-white mb-2">
+                {pollData.question}
+              </h3>
+              {hasVoted && (
+                <p className="text-sm text-muted-foreground dark:text-gray-400">
+                  Du hast abgestimmt • {totalVotes} {totalVotes === 1 ? 'Stimme' : 'Stimmen'} insgesamt
+                </p>
+              )}
+            </div>
+
+            {/* Poll Options */}
+            <div className="space-y-3">
+              {pollData.options.map((option: string) => {
+                const votes = pollVotes[option] || 0;
+                const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                const isUserChoice = userVote === option;
+
+                return (
+                  <div key={option} className="relative">
+                    {hasVoted ? (
+                      // Show results after voting
+                      <div className="relative overflow-hidden rounded-lg border bg-background">
+                        {/* Progress bar */}
+                        <div
+                          className={`absolute inset-y-0 left-0 transition-all duration-500 ${
+                            isUserChoice
+                              ? 'bg-christmas-gold/20'
+                              : 'bg-muted/50'
+                          }`}
+                          style={{ width: `${percentage}%` }}
+                        />
+
+                        {/* Content */}
+                        <div className="relative px-4 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground dark:text-white font-medium">
+                              {option}
+                            </span>
+                            {isUserChoice && (
+                              <span className="text-xs bg-christmas-gold text-white px-2 py-0.5 rounded-full">
+                                Deine Wahl
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground dark:text-gray-400">
+                              {votes} {votes === 1 ? 'Stimme' : 'Stimmen'}
+                            </span>
+                            <span className="text-lg font-semibold text-foreground dark:text-white min-w-[3rem] text-right">
+                              {percentage}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Show voting buttons before voting
+                      <Button
+                        onClick={() => handleVote(option)}
+                        variant="outline"
+                        className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-christmas-gold/10 hover:border-christmas-gold transition-colors"
+                      >
+                        <span className="text-foreground dark:text-white font-medium">
+                          {option}
+                        </span>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {!hasVoted && (
+              <p className="text-center text-sm text-muted-foreground dark:text-gray-400">
+                Wähle eine Option, um abzustimmen
+              </p>
+            )}
           </div>
         );
 
-      case 'puzzle':
+      case 'puzzle': {
+        if (!door.data) {
+          return (
+            <div className="text-center py-8">
+              <Puzzle className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
+              <p className="text-foreground dark:text-white">Puzzle wird geladen...</p>
+            </div>
+          );
+        }
+
+        if (puzzleSolved) {
+          return (
+            <div className="space-y-4">
+              <div className="relative w-full max-h-[60vh] overflow-hidden rounded-lg border">
+                <img
+                  src={door.data}
+                  alt="Gelöstes Puzzle"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <p className="text-center text-foreground dark:text-white text-base font-medium">
+                Herzlichen Glückwunsch! Das Puzzle ist gelöst.
+              </p>
+            </div>
+          );
+        }
+
         return (
-          <div className="text-center py-8">
-            <Puzzle className="w-16 h-16 mx-auto mb-4 text-christmas-gold" />
-            <p className="text-foreground dark:text-white">Puzzle wird geladen...</p>
+          <div className="space-y-4">
+            <PuzzleGame
+              imageUrl={door.data}
+              onSolved={handlePuzzleSolved}
+              darkMode={darkMode}
+            />
+            <p className="text-sm text-muted-foreground dark:text-gray-300 text-center">
+              Tippe auf eine Kachel neben dem freien Feld, um sie zu verschieben. Bringe das Bild in die richtige Reihenfolge.
+            </p>
           </div>
         );
+      }
 
       default:
         return (
@@ -166,7 +407,16 @@ export default function ContentModal({ door, onClose, darkMode }: ContentModalPr
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      {showConfetti && (
+        <Confetti
+          trigger={showConfetti}
+          onComplete={() => setShowConfetti(false)}
+        />
+      )}
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">

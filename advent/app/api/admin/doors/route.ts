@@ -60,12 +60,12 @@ export async function GET(request: NextRequest) {
 
       let thumbnail: string | null = null;
       if (['video', 'image', 'gif'].includes(mediaContent.type)) {
-        const thumbnailPath = await ThumbnailService.generateThumbnail(
+        const thumbnailPaths = await ThumbnailService.generateThumbnail(
           filePath,
           mediaContent.type as 'video' | 'image' | 'gif'
         );
-        if (thumbnailPath) {
-          thumbnail = `/thumbnails/${path.basename(thumbnailPath)}`;
+        if (thumbnailPaths.light) {
+          thumbnail = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
         }
       }
 
