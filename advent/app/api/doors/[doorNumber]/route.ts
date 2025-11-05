@@ -48,7 +48,8 @@ export async function GET(
         type: 'not available yet',
         data: null,
         text: null,
-        thumbnail: null,
+        thumbnailLight: null,
+        thumbnailDark: null,
         meta: null,
       } as DoorContent);
     }
@@ -61,7 +62,8 @@ export async function GET(
         type: 'not available yet',
         data: null,
         text: null,
-        thumbnail: null,
+        thumbnailLight: null,
+        thumbnailDark: null,
         meta: null,
       } as DoorContent);
     }
@@ -74,7 +76,8 @@ export async function GET(
       doorNumber
     );
 
-    let thumbnail: string | null = null;
+    let thumbnailLight: string | null = null;
+    let thumbnailDark: string | null = null;
     const meta = mediaContent.meta ?? null;
     if (['video', 'image', 'gif'].includes(mediaContent.type)) {
       const thumbnailPaths = await ThumbnailService.generateThumbnail(
@@ -82,7 +85,10 @@ export async function GET(
         mediaContent.type as 'video' | 'image' | 'gif'
       );
       if (thumbnailPaths.light) {
-        thumbnail = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
+        thumbnailLight = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
+      }
+      if (thumbnailPaths.dark) {
+        thumbnailDark = `/thumbnails/${path.basename(thumbnailPaths.dark)}`;
       }
     }
 
@@ -97,7 +103,8 @@ export async function GET(
         type: mediaContent.type,
         data: JSON.stringify({ question: pollData, votes: pollVotes }),
         text: message,
-        thumbnail,
+        thumbnailLight,
+        thumbnailDark,
         meta,
       } as DoorContent, {
         headers: {
@@ -110,7 +117,8 @@ export async function GET(
       type: mediaContent.type,
       data: mediaContent.data || null,
       text: message,
-      thumbnail,
+      thumbnailLight,
+      thumbnailDark,
       meta,
       isSolved: mediaContent.type === 'puzzle'
         ? Boolean(doorStates[doorNumber]?.win)

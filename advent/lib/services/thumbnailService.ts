@@ -7,6 +7,7 @@ import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { paths } from '../config/paths';
 import type { FileType } from '../utils/fileUtils';
+import type { ContentType } from '../types';
 
 type MarkdownPreviewLine = {
   type: 'heading' | 'subheading' | 'paragraph' | 'bullet' | 'numbered' | 'quote' | 'code';
@@ -26,6 +27,24 @@ type MarkdownTheme = {
   codeText: string;
 };
 
+type PreparedMarkdownLine = {
+  type: MarkdownPreviewLine['type'];
+  font: string;
+  lineHeight: number;
+  extraSpacing: number;
+  indent: number;
+  segments: string[];
+  availableWidth: number;
+  ellipsis: boolean;
+  blockWidth: number;
+  leftDecor: number;
+  rightDecor: number;
+  prefix?: string;
+  prefixWidth?: number;
+  bullet?: { radius: number; centerOffset: number };
+  hasCodeBox?: boolean;
+};
+
 
 export class ThumbnailService {
   private static thumbnailCache = new Map<string, string>();
@@ -34,7 +53,7 @@ export class ThumbnailService {
 
   static async generateThumbnail(
     filePath: string,
-    type: FileType | 'puzzle',
+    type: FileType | ContentType,
     doorNumber?: number
   ): Promise<{ light: string | null; dark: string | null }> {
     try {
@@ -949,81 +968,213 @@ export class ThumbnailService {
     lines: MarkdownPreviewLine[],
     theme: MarkdownTheme
   ): void {
-    const startX = 60;
-    const maxWidth = 380;
+    const canvasWidth = ctx?.canvas?.width ?? 500;
+    const sideMargin = 40;
     const maxRenderedLines = 8;
-    let renderedLines = 0;
+    let maxWidth = 380;
+
+    let layout = this.prepareMarkdownLayout(ctx, lines, maxRenderedLines, maxWidth);
+    let totalWidth = layout.contentWidth + layout.leftDecor + layout.rightDecor;
+    const maxAllowedWidth = canvasWidth - sideMargin * 2;
+
+    if (totalWidth > maxAllowedWidth) {
+      const adjustedMaxWidth = Math.max(
+        140,
+        maxAllowedWidth - (layout.leftDecor + layout.rightDecor)
+      );
+
+      if (adjustedMaxWidth < maxWidth) {
+        maxWidth = adjustedMaxWidth;
+        layout = this.prepareMarkdownLayout(ctx, lines, maxRenderedLines, maxWidth);
+        totalWidth = layout.contentWidth + layout.leftDecor + layout.rightDecor;
+      }
+    }
+
+    let startX = Math.round(
+      (canvasWidth - totalWidth) / 2 + layout.leftDecor
+    );
+
+    const leftBoundary = startX - layout.leftDecor;
+    const rightBoundary = startX + layout.contentWidth + layout.rightDecor;
+
+    if (leftBoundary < sideMargin) {
+      startX += sideMargin - leftBoundary;
+    }
+
+    if (rightBoundary > canvasWidth - sideMargin) {
+      startX -= rightBoundary - (canvasWidth - sideMargin);
+    }
+
     let currentY = 80;
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
+    for (const line of layout.lines) {
+      let color = theme.textColor;
+
+      switch (line.type) {
+        case 'heading':
+          color = theme.headingColor;
+          break;
+        case 'subheading':
+          color = theme.headingColor;
+          break;
+        case 'quote':
+          color = theme.mutedColor;
+          break;
+        case 'code':
+          color = theme.codeText;
+          break;
+        default:
+          color = theme.textColor;
+          break;
+      }
+
+      currentY += line.extraSpacing;
+      const blockTop = currentY;
+      const blockHeight = line.lineHeight * line.segments.length;
+
+      if (line.hasCodeBox) {
+        ctx.save();
+        ctx.fillStyle = theme.codeBackground;
+        ctx.strokeStyle = theme.codeBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const codeStart = startX - line.leftDecor;
+        const codeWidth = line.blockWidth + line.leftDecor + line.rightDecor;
+        ctx.roundRect(codeStart, blockTop - 8, codeWidth, blockHeight + 16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        currentY += 4;
+      } else if (line.type === 'quote') {
+        ctx.save();
+        ctx.fillStyle = theme.quoteColor;
+        ctx.fillRect(startX - line.leftDecor, blockTop - 2, 4, blockHeight + 4);
+        ctx.restore();
+      } else if (line.type === 'bullet' && line.bullet) {
+        ctx.save();
+        ctx.fillStyle = theme.bulletColor;
+        ctx.beginPath();
+        const centerX = startX - line.bullet.centerOffset;
+        const centerY = blockTop + line.lineHeight / 2;
+        ctx.arc(centerX, centerY, line.bullet.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (line.type === 'numbered' && line.prefix && line.prefixWidth !== undefined) {
+        ctx.save();
+        ctx.font = '600 18px "Inter", sans-serif';
+        ctx.fillStyle = theme.accentColor;
+        const prefixX = startX - Math.max(line.leftDecor - 4, line.prefixWidth + 6);
+        ctx.fillText(line.prefix, prefixX, blockTop);
+        ctx.restore();
+      }
+
+      ctx.font = line.font;
+      ctx.fillStyle = color;
+
+      for (let i = 0; i < line.segments.length; i++) {
+        let segment = line.segments[i];
+
+        if (line.ellipsis && i === line.segments.length - 1) {
+          segment = this.truncateWithEllipsis(ctx, segment, line.availableWidth);
+        }
+
+        ctx.fillText(segment, startX + line.indent, currentY);
+        currentY += line.lineHeight;
+      }
+
+      if (line.hasCodeBox) {
+        currentY += 6;
+      }
+    }
+  }
+
+  private static prepareMarkdownLayout(
+    ctx: any,
+    lines: MarkdownPreviewLine[],
+    maxRenderedLines: number,
+    maxWidth: number
+  ): {
+    lines: PreparedMarkdownLine[];
+    contentWidth: number;
+    leftDecor: number;
+    rightDecor: number;
+  } {
+    const prepared: PreparedMarkdownLine[] = [];
+    let renderedLines = 0;
+    let maxContentWidth = 0;
+    let maxLeftDecor = 0;
+    let maxRightDecor = 0;
+
     for (let index = 0; index < lines.length && renderedLines < maxRenderedLines; index++) {
       const line = lines[index];
+
       let font = '500 18px "Inter", sans-serif';
-      let color = theme.textColor;
       let lineHeight = 28;
-      let extraSpacing = renderedLines > 0 ? 6 : 0;
+      let extraSpacing = prepared.length > 0 ? 6 : 0;
+      let indent = 0;
+      let leftDecor = 0;
+      let rightDecor = 0;
+      let bullet: PreparedMarkdownLine['bullet'];
+      let prefix: string | undefined;
+      let prefixWidth: number | undefined;
+      let hasCodeBox = false;
 
       switch (line.type) {
         case 'heading':
           font = '700 30px "Inter", sans-serif';
-          color = theme.headingColor;
           lineHeight = 40;
-          extraSpacing = renderedLines > 0 ? 12 : 0;
+          extraSpacing = prepared.length > 0 ? 12 : 0;
           break;
         case 'subheading':
           font = '600 22px "Inter", sans-serif';
-          color = theme.headingColor;
           lineHeight = 32;
           extraSpacing = 8;
           break;
         case 'quote':
           font = 'italic 18px "Georgia", serif';
-          color = theme.mutedColor;
           lineHeight = 30;
           extraSpacing = 8;
+          indent = 20;
+          leftDecor = 16;
           break;
         case 'bullet':
-        case 'numbered':
           font = '500 18px "Inter", sans-serif';
-          color = theme.textColor;
           lineHeight = 28;
           extraSpacing = 6;
+          indent = 20;
+          bullet = { radius: 4, centerOffset: 6 };
+          leftDecor = bullet.centerOffset + bullet.radius;
+          break;
+        case 'numbered':
+          font = '500 18px "Inter", sans-serif';
+          lineHeight = 28;
+          extraSpacing = 6;
+          prefix = line.prefix;
+          ctx.save();
+          ctx.font = '600 18px "Inter", sans-serif';
+          prefixWidth = prefix ? ctx.measureText(prefix).width : 0;
+          ctx.restore();
+          indent = Math.max((prefixWidth ?? 0) + 14, 30);
+          leftDecor = (prefixWidth ?? 0) + 10;
           break;
         case 'code':
           font = '600 17px "Fira Code", monospace';
-          color = theme.codeText;
           lineHeight = 26;
           extraSpacing = 10;
+          indent = 18;
+          leftDecor = 18;
+          rightDecor = 18;
+          hasCodeBox = true;
           break;
         default:
           break;
       }
 
-      currentY += extraSpacing;
-      ctx.font = font;
-      ctx.fillStyle = color;
-
       const sanitizedText =
         line.type === 'code' ? line.text : line.text.replace(/\s+/g, ' ').trim();
-
-      let indent = 0;
-      let prefixWidth = 0;
-
-      if (line.type === 'bullet') {
-        indent = 20;
-      } else if (line.type === 'quote') {
-        indent = 20;
-      } else if (line.type === 'code') {
-        indent = 18;
-      } else if (line.type === 'numbered' && line.prefix) {
-        ctx.save();
-        ctx.font = '600 18px "Inter", sans-serif';
-        prefixWidth = ctx.measureText(line.prefix).width;
-        ctx.restore();
-        indent = Math.max(prefixWidth + 14, 30);
-      }
 
       const availableWidth = Math.max(maxWidth - indent, 140);
       const wrapped = this.wrapMarkdownText(ctx, sanitizedText, availableWidth);
@@ -1033,64 +1184,55 @@ export class ThumbnailService {
 
       const remainingLines = maxRenderedLines - renderedLines;
       const linesToRender = Math.min(wrapped.length, remainingLines);
+      const segments = wrapped.slice(0, linesToRender);
 
-      const blockTop = currentY;
-      const blockHeight = lineHeight * linesToRender;
-
-      if (line.type === 'code') {
-        ctx.save();
-        ctx.fillStyle = theme.codeBackground;
-        ctx.strokeStyle = theme.codeBorder;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(startX - 18, blockTop - 8, maxWidth + 36, blockHeight + 16);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-        indent = 18;
-        currentY += 4;
-      } else if (line.type === 'quote') {
-        ctx.save();
-        ctx.fillStyle = theme.quoteColor;
-        ctx.fillRect(startX - 16, blockTop - 2, 4, blockHeight + 4);
-        ctx.restore();
-      } else if (line.type === 'bullet') {
-        ctx.save();
-        ctx.fillStyle = theme.bulletColor;
-        ctx.beginPath();
-        ctx.arc(startX - 6, blockTop + lineHeight / 2, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      } else if (line.type === 'numbered' && line.prefix) {
-        ctx.save();
-        ctx.font = '600 18px "Inter", sans-serif';
-        ctx.fillStyle = theme.accentColor;
-        ctx.fillText(line.prefix, startX - 10, blockTop);
-        ctx.restore();
-      } else if (line.type === 'paragraph' || line.type === 'heading' || line.type === 'subheading') {
-        indent = 0;
+      let maxLineWidth = 0;
+      for (const segment of segments) {
+        const segmentWidth = ctx.measureText(segment).width;
+        if (segmentWidth > maxLineWidth) {
+          maxLineWidth = segmentWidth;
+        }
       }
 
-      const drawEllipsisOnLastLine =
+      let blockWidth = indent + Math.min(maxLineWidth, availableWidth);
+      if (hasCodeBox) {
+        blockWidth = Math.max(blockWidth, indent + availableWidth);
+      }
+
+      const shouldEllipsis =
         linesToRender === remainingLines &&
         (wrapped.length > linesToRender || index < lines.length - 1);
 
-      for (let i = 0; i < linesToRender; i++) {
-        let segment = wrapped[i];
+      prepared.push({
+        type: line.type,
+        font,
+        lineHeight,
+        extraSpacing,
+        indent,
+        segments,
+        availableWidth,
+        ellipsis: shouldEllipsis,
+        blockWidth,
+        leftDecor,
+        rightDecor,
+        prefix,
+        prefixWidth,
+        bullet,
+        hasCodeBox,
+      });
 
-        if (drawEllipsisOnLastLine && i === linesToRender - 1) {
-          segment = this.truncateWithEllipsis(ctx, segment, availableWidth);
-        }
-
-        ctx.fillText(segment, startX + indent, currentY);
-        currentY += lineHeight;
-        renderedLines++;
-      }
-
-      if (line.type === 'code') {
-        currentY += 6;
-      }
+      maxContentWidth = Math.max(maxContentWidth, blockWidth);
+      maxLeftDecor = Math.max(maxLeftDecor, leftDecor);
+      maxRightDecor = Math.max(maxRightDecor, rightDecor);
+      renderedLines += segments.length;
     }
+
+    return {
+      lines: prepared,
+      contentWidth: Math.max(maxContentWidth, 0),
+      leftDecor: maxLeftDecor,
+      rightDecor: maxRightDecor,
+    };
   }
 
   private static wrapMarkdownText(ctx: any, text: string, maxWidth: number): string[] {

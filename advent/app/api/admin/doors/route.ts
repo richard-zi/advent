@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
           type: 'not available yet',
           data: null,
           text: null,
-          thumbnail: null,
+          thumbnailLight: null,
+          thumbnailDark: null,
           meta: null,
         };
         continue;
@@ -44,7 +45,8 @@ export async function GET(request: NextRequest) {
           type: 'not available yet',
           data: null,
           text: null,
-          thumbnail: null,
+          thumbnailLight: null,
+          thumbnailDark: null,
           meta: null,
         };
         continue;
@@ -58,14 +60,18 @@ export async function GET(request: NextRequest) {
         doorNumber
       );
 
-      let thumbnail: string | null = null;
+      let thumbnailLight: string | null = null;
+      let thumbnailDark: string | null = null;
       if (['video', 'image', 'gif'].includes(mediaContent.type)) {
         const thumbnailPaths = await ThumbnailService.generateThumbnail(
           filePath,
           mediaContent.type as 'video' | 'image' | 'gif'
         );
         if (thumbnailPaths.light) {
-          thumbnail = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
+          thumbnailLight = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
+        }
+        if (thumbnailPaths.dark) {
+          thumbnailDark = `/thumbnails/${path.basename(thumbnailPaths.dark)}`;
         }
       }
 
@@ -81,7 +87,8 @@ export async function GET(request: NextRequest) {
           type: mediaContent.type,
           data: JSON.stringify({ question: pollData, votes: pollVotes }),
           text: message,
-          thumbnail,
+          thumbnailLight,
+          thumbnailDark,
           meta,
         };
         continue;
@@ -91,7 +98,8 @@ export async function GET(request: NextRequest) {
         type: mediaContent.type,
         data: mediaContent.data || null,
         text: message,
-        thumbnail,
+        thumbnailLight,
+        thumbnailDark,
         meta,
       };
     }

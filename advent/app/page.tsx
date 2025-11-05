@@ -297,8 +297,9 @@ export default function Home() {
                 key={day}
                 onClick={() => door && !isLocked && handleDoorClick(door)}
                 className={cn(
-                  "relative flex flex-col h-full overflow-hidden transition-all duration-300",
-                  !isLocked && "cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_12px_35px_rgba(214,174,56,0.25)]",
+                  "relative flex flex-col h-full overflow-hidden",
+                  opened ? "transition-none" : "transition-all duration-300",
+                  !isLocked && "cursor-pointer hover:shadow-[0_12px_35px_rgba(214,174,56,0.25)]",
                   isLocked && "cursor-not-allowed opacity-60",
                   opened && "border border-christmas-red/70 shadow-inner shadow-christmas-red/40",
                   opened && !hasThumbnail && "bg-gradient-to-br from-christmas-red/18 via-transparent to-christmas-gold/10",
