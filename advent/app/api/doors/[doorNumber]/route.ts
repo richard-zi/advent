@@ -79,10 +79,11 @@ export async function GET(
     let thumbnailLight: string | null = null;
     let thumbnailDark: string | null = null;
     const meta = mediaContent.meta ?? null;
-    if (['video', 'image', 'gif'].includes(mediaContent.type)) {
+    if (mediaContent.type !== 'not available yet') {
       const thumbnailPaths = await ThumbnailService.generateThumbnail(
         filePath,
-        mediaContent.type as 'video' | 'image' | 'gif'
+        mediaContent.type,
+        doorNumber
       );
       if (thumbnailPaths.light) {
         thumbnailLight = `/thumbnails/${path.basename(thumbnailPaths.light)}`;

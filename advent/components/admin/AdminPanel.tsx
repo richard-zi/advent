@@ -177,6 +177,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
   const [iframeUrl, setIframeUrl] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
   const [countdownText, setCountdownText] = useState('');
+  const [previewMode, setPreviewMode] = useState<'content' | 'thumbnails'>('content');
 
   const currentDoor = useMemo(
     () => doors.find((door) => door.day === selectedDoor) || null,
@@ -185,6 +186,10 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
   const hasExistingContent = Boolean(
     currentDoor && currentDoor.type && currentDoor.type !== 'not available yet'
   );
+
+  useEffect(() => {
+    setPreviewMode('content');
+  }, [selectedDoor]);
 
   const handleUnauthorized = (status: number) => {
     if (status === 401 || status === 403) {
@@ -205,6 +210,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
     setIframeUrl('');
     setCountdownDate(settings.startDate || '');
     setCountdownText('');
+    setPreviewMode('content');
   };
 
   useEffect(() => {
@@ -451,7 +457,15 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
           prev
             .map((door) =>
               door.day === selectedDoor
-                ? { ...door, type: 'not available yet', data: null, text: null, thumbnail: null, meta: null }
+                ? {
+                    ...door,
+                    type: 'not available yet',
+                    data: null,
+                    text: null,
+                    thumbnailLight: null,
+                    thumbnailDark: null,
+                    meta: null,
+                  }
                 : door
             )
         );
@@ -463,7 +477,7 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
     }
   };
 
-  const renderPreview = () => {
+  const renderContentPreview = () => {
     if (!currentDoor || !hasExistingContent) {
       return (
         <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground dark:text-gray-400">
@@ -583,6 +597,73 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
     }
   };
 
+  const renderThumbnailPreview = () => {
+    if (!currentDoor || !hasExistingContent) {
+      return (
+        <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground dark:text-gray-400">
+          Noch kein Inhalt gespeichert.
+        </div>
+      );
+    }
+
+    const { thumbnailLight, thumbnailDark } = currentDoor;
+
+    if (!thumbnailLight && !thumbnailDark) {
+      return (
+        <div className="space-y-3 rounded-md border border-dashed border-muted-foreground/30 p-6 text-sm text-muted-foreground dark:text-gray-400">
+          <p className="font-medium text-foreground dark:text-white">Keine Thumbnails vorhanden</p>
+          <p>
+            Sobald für diesen Inhalt ein Thumbnail generiert wird, erscheint es hier. Prüfe, ob der Inhalt einen
+            unterstützten Typ besitzt oder generiere den Inhalt erneut.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {thumbnailLight && (
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+                Light-Version
+              </span>
+              <div className="overflow-hidden rounded-md border bg-muted/30 p-2">
+                <img
+                  src={thumbnailLight}
+                  alt={`Light Thumbnail Türchen ${selectedDoor}`}
+                  className="w-full rounded-sm object-contain"
+                />
+              </div>
+            </div>
+          )}
+          {thumbnailDark && (
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+                Dark-Version
+              </span>
+              <div className="overflow-hidden rounded-md border bg-muted/30 p-2">
+                <img
+                  src={thumbnailDark}
+                  alt={`Dark Thumbnail Türchen ${selectedDoor}`}
+                  className="w-full rounded-sm object-contain"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-md border bg-muted/30 p-4 text-xs text-muted-foreground dark:text-gray-400">
+          <p className="font-medium text-foreground dark:text-white">Hinweis</p>
+          <p className="mt-1">
+            Die Thumbnails werden automatisch generiert und sowohl im hellen als auch im dunklen Modus der Startseite verwendet.
+            Überprüfe hier das Ergebnis, bevor du den Inhalt freigibst.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -669,29 +750,53 @@ export default function AdminPanel({ onLogout, onSessionExpired, csrfToken }: Ad
                     </Avatar>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {hasExistingContent && currentDoor ? (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="capitalize">
-                            {currentDoor.type}
-                          </Badge>
-                          {(currentDoor.thumbnailLight || currentDoor.thumbnailDark) && (
-                            <Badge variant="secondary">Thumbnails vorhanden</Badge>
-                          )}
-                        </div>
-                        {renderPreview()}
-                        {currentDoor.text && (
-                          <div className="space-y-2 text-sm">
-                            <Separator />
-                            <p className="font-medium text-muted-foreground dark:text-gray-300">Zusätzliche Nachricht</p>
-                            <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-3 dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.text}</ReactMarkdown>
-                            </div>
-                          </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {currentDoor && (
+                          <>
+                            <Badge variant="outline" className="capitalize">
+                              {currentDoor.type}
+                            </Badge>
+                            {(currentDoor.thumbnailLight || currentDoor.thumbnailDark) && (
+                              <Badge variant="secondary">Thumbnails vorhanden</Badge>
+                            )}
+                          </>
                         )}
-                      </>
-                    ) : (
-                      renderPreview()
+                      </div>
+                      {hasExistingContent && currentDoor && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={previewMode === 'content' ? 'default' : 'outline'}
+                            onClick={() => setPreviewMode('content')}
+                          >
+                            Türchenvorschau
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={previewMode === 'thumbnails' ? 'default' : 'outline'}
+                            onClick={() => setPreviewMode('thumbnails')}
+                          >
+                            Thumbnail-Vorschau
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {hasExistingContent && currentDoor && previewMode === 'thumbnails'
+                      ? renderThumbnailPreview()
+                      : renderContentPreview()}
+
+                    {previewMode === 'content' && currentDoor?.text && (
+                      <div className="space-y-2 text-sm">
+                        <Separator />
+                        <p className="font-medium text-muted-foreground dark:text-gray-300">Zusätzliche Nachricht</p>
+                        <div className="prose prose-sm max-w-none rounded-md border bg-muted/30 p-3 dark:prose-invert prose-headings:dark:text-white prose-p:dark:text-white prose-li:dark:text-white prose-strong:dark:text-white prose-a:dark:text-blue-400 prose-code:dark:text-white">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoor.text}</ReactMarkdown>
+                        </div>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

@@ -969,7 +969,10 @@ export class ThumbnailService {
     theme: MarkdownTheme
   ): void {
     const canvasWidth = ctx?.canvas?.width ?? 500;
+    const canvasHeight = ctx?.canvas?.height ?? 500;
     const sideMargin = 40;
+    const topMargin = 56;
+    const bottomMargin = 56;
     const maxRenderedLines = 8;
     let maxWidth = 380;
 
@@ -1005,7 +1008,23 @@ export class ThumbnailService {
       startX -= rightBoundary - (canvasWidth - sideMargin);
     }
 
-    let currentY = 80;
+    const layoutHeight = this.computeLayoutHeight(layout.lines);
+
+    let currentY = Math.round((canvasHeight - layoutHeight) / 2);
+    if (currentY < topMargin) {
+      currentY = topMargin;
+    }
+
+    const maxStart = canvasHeight - bottomMargin - layoutHeight;
+    if (currentY > maxStart) {
+      currentY = Math.max(topMargin, maxStart);
+    }
+
+    if (layoutHeight >= canvasHeight - (topMargin + bottomMargin)) {
+      currentY = Math.max(topMargin, canvasHeight - bottomMargin - layoutHeight);
+    }
+
+    currentY = Math.max(24, currentY);
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -1074,6 +1093,16 @@ export class ThumbnailService {
       ctx.font = line.font;
       ctx.fillStyle = color;
 
+      const centerFriendly =
+        !line.hasCodeBox &&
+        !line.bullet &&
+        line.type !== 'numbered' &&
+        line.type !== 'quote' &&
+        line.indent === 0;
+
+      const baseX = centerFriendly ? Math.round(canvasWidth / 2) : startX + line.indent;
+      ctx.textAlign = centerFriendly ? 'center' : 'left';
+
       for (let i = 0; i < line.segments.length; i++) {
         let segment = line.segments[i];
 
@@ -1081,14 +1110,31 @@ export class ThumbnailService {
           segment = this.truncateWithEllipsis(ctx, segment, line.availableWidth);
         }
 
-        ctx.fillText(segment, startX + line.indent, currentY);
+        ctx.fillText(segment, baseX, currentY);
         currentY += line.lineHeight;
       }
+
+      ctx.textAlign = 'left';
 
       if (line.hasCodeBox) {
         currentY += 6;
       }
     }
+  }
+
+  private static computeLayoutHeight(lines: PreparedMarkdownLine[]): number {
+    let total = 0;
+    for (const line of lines) {
+      total += line.extraSpacing;
+      if (line.hasCodeBox) {
+        total += 4;
+      }
+      total += line.lineHeight * line.segments.length;
+      if (line.hasCodeBox) {
+        total += 6;
+      }
+    }
+    return total;
   }
 
   private static prepareMarkdownLayout(
@@ -1173,12 +1219,16 @@ export class ThumbnailService {
           break;
       }
 
+      const previousFont = ctx.font;
+      ctx.font = font;
+
       const sanitizedText =
         line.type === 'code' ? line.text : line.text.replace(/\s+/g, ' ').trim();
 
       const availableWidth = Math.max(maxWidth - indent, 140);
       const wrapped = this.wrapMarkdownText(ctx, sanitizedText, availableWidth);
       if (wrapped.length === 0) {
+        ctx.font = previousFont;
         continue;
       }
 
@@ -1202,6 +1252,8 @@ export class ThumbnailService {
       const shouldEllipsis =
         linesToRender === remainingLines &&
         (wrapped.length > linesToRender || index < lines.length - 1);
+
+      ctx.font = previousFont;
 
       prepared.push({
         type: line.type,
