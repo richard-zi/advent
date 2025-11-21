@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { paths } from '../config/paths';
@@ -45,6 +45,22 @@ type PreparedMarkdownLine = {
   hasCodeBox?: boolean;
 };
 
+const SANS_FONT = '"Plus Jakarta Sans", sans-serif';
+const SANS_FONT_FILES = [
+  path.join(process.cwd(), 'public', 'fonts', 'PlusJakartaSans-Regular.ttf'),
+  path.join(process.cwd(), 'public', 'fonts', 'PlusJakartaSans-Medium.ttf'),
+  path.join(process.cwd(), 'public', 'fonts', 'PlusJakartaSans-SemiBold.ttf'),
+  path.join(process.cwd(), 'public', 'fonts', 'PlusJakartaSans-Bold.ttf'),
+  path.join(process.cwd(), 'public', 'fonts', 'PlusJakartaSans-Italic.ttf'),
+];
+
+for (const fontPath of SANS_FONT_FILES) {
+  if (fs.existsSync(fontPath)) {
+    GlobalFonts.registerFromPath(fontPath, 'Plus Jakarta Sans');
+  } else {
+    logger.warn('Fontdatei fehlt für Thumbnails:', fontPath);
+  }
+}
 
 export class ThumbnailService {
   private static thumbnailCache = new Map<string, string>();
@@ -496,7 +512,7 @@ export class ThumbnailService {
       ctxLight.lineTo(startX + totalWidth + 20, chartBottom + 6);
       ctxLight.stroke();
 
-      ctxLight.font = '600 20px "Inter", sans-serif';
+      ctxLight.font = `600 20px ${SANS_FONT}`;
       ctxLight.textAlign = 'center';
       ctxLight.fillStyle = 'hsl(0, 0%, 30%)';
       this.wrapText(ctxLight, poll.question, 250, chartBottom + 40, 420, 28);
@@ -542,7 +558,7 @@ export class ThumbnailService {
       ctxDark.lineTo(startXDark + totalWidthDark + 20, chartBottomDark + 6);
       ctxDark.stroke();
 
-      ctxDark.font = '600 20px "Inter", sans-serif';
+      ctxDark.font = `600 20px ${SANS_FONT}`;
       ctxDark.textAlign = 'center';
       ctxDark.fillStyle = 'hsl(0, 0%, 70%)';
       this.wrapText(ctxDark, poll.question, 250, chartBottomDark + 40, 420, 28);
@@ -1099,7 +1115,7 @@ export class ThumbnailService {
         ctx.restore();
       } else if (line.type === 'numbered' && line.prefix && line.prefixWidth !== undefined) {
         ctx.save();
-        ctx.font = '600 18px "Inter", sans-serif';
+        ctx.font = `600 18px ${SANS_FONT}`;
         ctx.fillStyle = theme.accentColor;
         const prefixX = startX - Math.max(line.leftDecor - 4, line.prefixWidth + 6);
         ctx.fillText(line.prefix, prefixX, blockTop);
@@ -1173,7 +1189,7 @@ export class ThumbnailService {
     for (let index = 0; index < lines.length && renderedLines < maxRenderedLines; index++) {
       const line = lines[index];
 
-      let font = '500 18px "Inter", sans-serif';
+      let font = `500 18px ${SANS_FONT}`;
       let lineHeight = 28;
       let extraSpacing = prepared.length > 0 ? 6 : 0;
       let indent = 0;
@@ -1186,24 +1202,24 @@ export class ThumbnailService {
 
       switch (line.type) {
         case 'heading':
-          font = '700 30px "Inter", sans-serif';
+          font = `700 30px ${SANS_FONT}`;
           lineHeight = 40;
           extraSpacing = prepared.length > 0 ? 12 : 0;
           break;
         case 'subheading':
-          font = '600 22px "Inter", sans-serif';
+          font = `600 22px ${SANS_FONT}`;
           lineHeight = 32;
           extraSpacing = 8;
           break;
         case 'quote':
-          font = 'italic 18px "Georgia", serif';
+          font = `italic 18px ${SANS_FONT}`;
           lineHeight = 30;
           extraSpacing = 8;
           indent = 20;
           leftDecor = 16;
           break;
         case 'bullet':
-          font = '500 18px "Inter", sans-serif';
+          font = `500 18px ${SANS_FONT}`;
           lineHeight = 28;
           extraSpacing = 6;
           indent = 20;
@@ -1211,19 +1227,19 @@ export class ThumbnailService {
           leftDecor = bullet.centerOffset + bullet.radius;
           break;
         case 'numbered':
-          font = '500 18px "Inter", sans-serif';
+          font = `500 18px ${SANS_FONT}`;
           lineHeight = 28;
           extraSpacing = 6;
           prefix = line.prefix;
           ctx.save();
-          ctx.font = '600 18px "Inter", sans-serif';
+          ctx.font = `600 18px ${SANS_FONT}`;
           prefixWidth = prefix ? ctx.measureText(prefix).width : 0;
           ctx.restore();
           indent = Math.max((prefixWidth ?? 0) + 14, 30);
           leftDecor = (prefixWidth ?? 0) + 10;
           break;
         case 'code':
-          font = '600 17px "Fira Code", monospace';
+          font = `600 17px ${SANS_FONT}`;
           lineHeight = 26;
           extraSpacing = 10;
           indent = 18;
