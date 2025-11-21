@@ -9,8 +9,8 @@ module.exports = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-  			heading: ['var(--font-poppins)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+  			sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+  			heading: ['var(--font-sans)', 'system-ui', 'sans-serif'],
   		},
   		colors: {
   			'christmas-red': 'hsl(var(--christmas-red))',

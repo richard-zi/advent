@@ -36,7 +36,7 @@ export class FileUtils {
   }
 
   static cleanupTempFiles(): void {
-    const dirs = [paths.mediaDir, paths.thumbnailsDir];
+    const dirs = [paths.mediaDir, paths.thumbnailsDir, paths.publicThumbnailsDir];
     dirs.forEach((dir) => {
       if (fs.existsSync(dir)) {
         const files = fs.readdirSync(dir);

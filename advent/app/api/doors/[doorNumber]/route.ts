@@ -85,12 +85,12 @@ export async function GET(
         mediaContent.type,
         doorNumber
       );
-      if (thumbnailPaths.light) {
-        thumbnailLight = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
-      }
-      if (thumbnailPaths.dark) {
-        thumbnailDark = `/thumbnails/${path.basename(thumbnailPaths.dark)}`;
-      }
+        if (thumbnailPaths.light) {
+          thumbnailLight = `/api/thumbnails/${path.basename(thumbnailPaths.light)}`;
+        }
+        if (thumbnailPaths.dark) {
+          thumbnailDark = `/api/thumbnails/${path.basename(thumbnailPaths.dark)}`;
+        }
     }
 
     const message = await MediaService.getMediaMessage(doorNumber);

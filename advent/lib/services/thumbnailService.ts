@@ -67,13 +67,27 @@ export class ThumbnailService {
         paths.thumbnailsDir,
         `thumb_${identifier}_dark.jpg`
       );
+      const publicThumbnailLight = path.join(
+        paths.publicThumbnailsDir,
+        `thumb_${identifier}_light.jpg`
+      );
+      const publicThumbnailDark = path.join(
+        paths.publicThumbnailsDir,
+        `thumb_${identifier}_dark.jpg`
+      );
 
-      // Check if both thumbnails exist
-      const lightExists = await this.checkExistingThumbnail(thumbnailPathLight);
-      const darkExists = await this.checkExistingThumbnail(thumbnailPathDark);
+      // Check if both thumbnails exist (runtime or prebuilt public)
+      const lightExisting = await this.findExistingThumbnail(
+        thumbnailPathLight,
+        publicThumbnailLight
+      );
+      const darkExisting = await this.findExistingThumbnail(
+        thumbnailPathDark,
+        publicThumbnailDark
+      );
 
-      if (type !== 'puzzle' && lightExists && darkExists) {
-        return { light: thumbnailPathLight, dark: thumbnailPathDark };
+      if (type !== 'puzzle' && lightExisting && darkExisting) {
+        return { light: lightExisting, dark: darkExisting };
       }
 
       logger.info('Generiere neue Thumbnails für:', filename, 'Typ:', type);
@@ -284,19 +298,25 @@ export class ThumbnailService {
     }
   }
 
-  static async checkExistingThumbnail(thumbnailPath: string): Promise<boolean> {
-    try {
-      if (fs.existsSync(thumbnailPath)) {
-        const metadata = await sharp(thumbnailPath).metadata();
-        if (metadata.width && metadata.height) {
-          logger.info('Verwende existierendes Thumbnail:', thumbnailPath);
-          return true;
+  static async findExistingThumbnail(
+    primaryPath: string,
+    fallbackPath: string
+  ): Promise<string | null> {
+    const candidates = [primaryPath, fallbackPath];
+    for (const candidate of candidates) {
+      try {
+        if (fs.existsSync(candidate)) {
+          const metadata = await sharp(candidate).metadata();
+          if (metadata.width && metadata.height) {
+            logger.info('Verwende existierendes Thumbnail:', candidate);
+            return candidate;
+          }
         }
+      } catch (error) {
+        continue;
       }
-      return false;
-    } catch (error) {
-      return false;
     }
+    return null;
   }
 
   static clearCache(): void {
@@ -307,22 +327,18 @@ export class ThumbnailService {
   static async deleteThumbnail(filename: string): Promise<void> {
     try {
       const identifier = filename.split('.')[0];
-      const thumbnailPathLight = path.join(
-        paths.thumbnailsDir,
-        `thumb_${identifier}_light.jpg`
-      );
-      const thumbnailPathDark = path.join(
-        paths.thumbnailsDir,
-        `thumb_${identifier}_dark.jpg`
-      );
+      const targets = [
+        path.join(paths.thumbnailsDir, `thumb_${identifier}_light.jpg`),
+        path.join(paths.thumbnailsDir, `thumb_${identifier}_dark.jpg`),
+        path.join(paths.publicThumbnailsDir, `thumb_${identifier}_light.jpg`),
+        path.join(paths.publicThumbnailsDir, `thumb_${identifier}_dark.jpg`),
+      ];
 
-      if (fs.existsSync(thumbnailPathLight)) {
-        fs.unlinkSync(thumbnailPathLight);
-        logger.info('Thumbnail gelöscht:', thumbnailPathLight);
-      }
-      if (fs.existsSync(thumbnailPathDark)) {
-        fs.unlinkSync(thumbnailPathDark);
-        logger.info('Thumbnail gelöscht:', thumbnailPathDark);
+      for (const target of targets) {
+        if (fs.existsSync(target)) {
+          fs.unlinkSync(target);
+          logger.info('Thumbnail gelöscht:', target);
+        }
       }
     } catch (error) {
       logger.error('Fehler beim Löschen des Thumbnails:', error);

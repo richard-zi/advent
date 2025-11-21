@@ -69,10 +69,10 @@ export async function GET(request: NextRequest) {
           doorNumber
         );
         if (thumbnailPaths.light) {
-          thumbnailLight = `/thumbnails/${path.basename(thumbnailPaths.light)}`;
+          thumbnailLight = `/api/thumbnails/${path.basename(thumbnailPaths.light)}`;
         }
         if (thumbnailPaths.dark) {
-          thumbnailDark = `/thumbnails/${path.basename(thumbnailPaths.dark)}`;
+          thumbnailDark = `/api/thumbnails/${path.basename(thumbnailPaths.dark)}`;
         }
       }
 

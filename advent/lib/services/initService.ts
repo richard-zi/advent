@@ -24,6 +24,7 @@ export class InitService {
       FileUtils.ensureDirectoryExists(paths.dataDir);
       FileUtils.ensureDirectoryExists(paths.mediaDir);
       FileUtils.ensureDirectoryExists(paths.thumbnailsDir);
+      FileUtils.ensureDirectoryExists(paths.publicThumbnailsDir);
       FileUtils.ensureDirectoryExists(paths.messagesDir);
       FileUtils.ensureDirectoryExists(paths.pollsDir);
       FileUtils.ensureDirectoryExists(paths.assetDir);

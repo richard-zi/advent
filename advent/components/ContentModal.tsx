@@ -18,6 +18,11 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Confetti from '@/components/Confetti';
 import PuzzleGame from '@/components/PuzzleGame';
+import {
+  getOrCreateUserId,
+  loadPollParticipation,
+  savePollParticipation,
+} from '@/lib/clientStorage';
 
 interface ContentModalProps {
   door: DoorContent;
@@ -36,50 +41,56 @@ export default function ContentModal({ door, onClose, darkMode, onPuzzleSolved }
   const [hasVoted, setHasVoted] = useState(false);
   const [puzzleSolved, setPuzzleSolved] = useState(door.isSolved ?? false);
   const [showConfetti, setShowConfetti] = useState(false);
-
-  // Get or create userId for poll voting
-  const getUserId = () => {
-    if (typeof window === 'undefined') return null;
-
-    let userId = localStorage.getItem('adventCalendarUserId');
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      localStorage.setItem('adventCalendarUserId', userId);
-    }
-    return userId;
-  };
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Load poll data when door is a poll
   useEffect(() => {
-    if (door.type === 'poll' && door.day) {
-      const loadPoll = async () => {
-        setPollLoading(true);
-        setPollError(null);
+    setUserId(getOrCreateUserId());
+  }, []);
 
-        try {
-          const userId = getUserId();
-          const response = await fetch(`/api/poll/${door.day}${userId ? `?userId=${userId}` : ''}`);
+  useEffect(() => {
+    if (door.type !== 'poll' || !door.day) return;
 
-          if (!response.ok) {
-            throw new Error('Fehler beim Laden der Umfrage');
-          }
+    setPollLoading(true);
+    setPollError(null);
+    setPollData(null);
+    setPollVotes({});
+    setUserVote(null);
+    setHasVoted(false);
 
-          const data = await response.json();
-          setPollData(data.pollData);
-          setPollVotes(data.votes || {});
-          setUserVote(data.userVote || null);
-          setHasVoted(!!data.userVote);
-        } catch (error) {
-          console.error('Poll load error:', error);
-          setPollError('Umfrage konnte nicht geladen werden');
-        } finally {
-          setPollLoading(false);
+    if (!userId) return;
+
+    const existingVote = loadPollParticipation(userId)[door.day] || null;
+    setUserVote(existingVote);
+    setHasVoted(!!existingVote);
+
+    const loadPoll = async () => {
+      try {
+        const response = await fetch(`/api/poll/${door.day}${userId ? `?userId=${userId}` : ''}`);
+
+        if (!response.ok) {
+          throw new Error('Fehler beim Laden der Umfrage');
         }
-      };
 
-      loadPoll();
-    }
-  }, [door.type, door.day]);
+        const data = await response.json();
+        setPollData(data.pollData);
+        setPollVotes(data.votes || {});
+        const effectiveUserVote = data.userVote || existingVote || null;
+        setUserVote(effectiveUserVote);
+        setHasVoted(!!effectiveUserVote);
+        if (effectiveUserVote && door.day) {
+          savePollParticipation(door.day, effectiveUserVote, userId);
+        }
+      } catch (error) {
+        console.error('Poll load error:', error);
+        setPollError('Umfrage konnte nicht geladen werden');
+      } finally {
+        setPollLoading(false);
+      }
+    };
+
+    loadPoll();
+  }, [door.type, door.day, userId]);
 
   useEffect(() => {
     const solved = door.isSolved ?? false;
@@ -91,9 +102,8 @@ export default function ContentModal({ door, onClose, darkMode, onPuzzleSolved }
 
   // Handle poll vote submission
   const handleVote = async (option: string) => {
-    if (hasVoted || !pollData) return;
+    if (hasVoted || !pollData || !door.day) return;
 
-    const userId = getUserId();
     if (!userId) {
       setPollError('Fehler beim Speichern der Stimme');
       return;
@@ -116,6 +126,7 @@ export default function ContentModal({ door, onClose, darkMode, onPuzzleSolved }
         setPollVotes(data.votes);
         setUserVote(option);
         setHasVoted(true);
+        savePollParticipation(door.day, option, userId);
       } else {
         setPollError('Du hast bereits abgestimmt');
       }

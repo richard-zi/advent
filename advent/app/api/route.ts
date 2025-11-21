@@ -81,10 +81,10 @@ export async function GET(request: NextRequest) {
           index
         );
         if (thumbnails.light) {
-          thumbnailUrlLight = `/thumbnails/${path.basename(thumbnails.light)}`;
+          thumbnailUrlLight = `/api/thumbnails/${path.basename(thumbnails.light)}`;
         }
         if (thumbnails.dark) {
-          thumbnailUrlDark = `/thumbnails/${path.basename(thumbnails.dark)}`;
+          thumbnailUrlDark = `/api/thumbnails/${path.basename(thumbnails.dark)}`;
         }
 
         let data: string | null = null;

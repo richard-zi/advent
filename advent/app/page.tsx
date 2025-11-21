@@ -11,9 +11,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getOrCreateUserId, loadOpenedDoors, saveOpenedDoors } from '@/lib/clientStorage';
 
 export default function Home() {
   const { resolvedTheme, setTheme } = useTheme();
+  const [userId, setUserId] = useState<string | null>(null);
   const [doors, setDoors] = useState<DoorContent[]>([]);
   const [doorStates, setDoorStates] = useState<Record<number, { win?: boolean }>>({});
   const [doorOrder, setDoorOrder] = useState<number[]>([]);
@@ -42,8 +44,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem('openedDoors');
-    if (stored) setOpenedDoors(JSON.parse(stored));
+    setUserId(getOrCreateUserId());
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    setOpenedDoors(loadOpenedDoors(userId));
 
     const snowPref = localStorage.getItem('showSnow');
     if (snowPref !== null) setShowSnow(JSON.parse(snowPref));
@@ -64,11 +71,12 @@ export default function Home() {
 
     fetchDoors(initialDoorStates);
     fetchSettings();
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    localStorage.setItem('openedDoors', JSON.stringify(openedDoors));
-  }, [openedDoors]);
+    if (!userId) return;
+    saveOpenedDoors(openedDoors, userId);
+  }, [openedDoors, userId]);
 
   useEffect(() => {
     localStorage.setItem('showSnow', JSON.stringify(showSnow));
